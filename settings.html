@@ -238,6 +238,9 @@
         if (Array.isArray(res)) {
           el.textContent = '✓ Connected — API responding normally';
           el.style.color = 'var(--green)';
+        } else {
+          el.textContent = '✗ Unexpected response — check Web App deployment settings';
+          el.style.color = 'var(--rose)';
         }
       } catch (e) {
         el.textContent = '✗ Not connected — check API_URL in api.js';

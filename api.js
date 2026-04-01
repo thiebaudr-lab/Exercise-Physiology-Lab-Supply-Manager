@@ -5,7 +5,8 @@
 // Found under: Deploy > Manage deployments > Web App URL
 // ============================================================
 
-const API_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxQSJHuEUVqhWJR_X7Ioh8QmzxdRER9fqzwQgcBXz4AW8Kvc-SrBapECRKGsnM1uIK4/exec';
+const TIMEOUT_MS = 15000;
 
 // ── API Calls ─────────────────────────────────────────────────
 
@@ -13,32 +14,43 @@ async function apiGet(action, params = {}) {
   const url = new URL(API_URL);
   url.searchParams.set('action', action);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(url.toString());
+    const res = await fetch(url.toString(), { signal: controller.signal });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
     return data;
   } catch (err) {
-    showToast('Load error: ' + err.message, 'error');
-    throw err;
+    const msg = err.name === 'AbortError' ? 'Request timed out after 15s' : err.message;
+    showToast('Load error: ' + msg, 'error');
+    throw new Error(msg);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 async function apiPost(payload) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     // No Content-Type header — avoids CORS preflight with Apps Script
     const res = await fetch(API_URL, {
       method: 'POST',
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
     return data;
   } catch (err) {
-    showToast('Save error: ' + err.message, 'error');
-    throw err;
+    const msg = err.name === 'AbortError' ? 'Request timed out after 15s' : err.message;
+    showToast('Save error: ' + msg, 'error');
+    throw new Error(msg);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
