@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Settings</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link">Consumables</a>
+          <a href="hardware.html"    class="nav-link">Hardware</a>
+          <a href="daily-log.html"   class="nav-link">Daily Log</a>
+          <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="settings.html"    class="nav-link active">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Configuration</div>
+      <h1 class="page-title">Settings</h1>
+      <p class="page-subtitle">Manage the dropdown options used throughout the system.</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;" class="anim d2">
+
+      <!-- Staff -->
+      <div class="glass" style="padding:24px;">
+        <div class="settings-section">
+          <div class="settings-section-title">👤 Staff / Lab Personnel</div>
+          <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These names appear in the "Used By" dropdown on the Daily Log page.</div>
+          <ul class="settings-list" id="staff-list">
+            <li class="settings-item"><span class="settings-name"><span class="spinner"></span></span></li>
+          </ul>
+          <div class="settings-add">
+            <input id="staff-input" class="linput" type="text" placeholder="Full name…" style="flex:1;" onkeydown="if(event.key==='Enter')addSetting('staff')" />
+            <button class="btn btn-primary btn-sm" onclick="addSetting('staff')">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vendors -->
+      <div class="glass" style="padding:24px;">
+        <div class="settings-section">
+          <div class="settings-section-title">🏪 Vendors / Suppliers</div>
+          <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These appear in the Vendor dropdown on Consumables and Hardware pages.</div>
+          <ul class="settings-list" id="vendor-list">
+            <li class="settings-item"><span class="settings-name"><span class="spinner"></span></span></li>
+          </ul>
+          <div class="settings-add">
+            <input id="vendor-input" class="linput" type="text" placeholder="Vendor name…" style="flex:1;" onkeydown="if(event.key==='Enter')addSetting('vendor')" />
+            <button class="btn btn-primary btn-sm" onclick="addSetting('vendor')">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classes -->
+      <div class="glass" style="padding:24px;">
+        <div class="settings-section">
+          <div class="settings-section-title">📚 Classes</div>
+          <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These appear in the Class dropdown on the Daily Log page and in Reports.</div>
+          <ul class="settings-list" id="class-list">
+            <li class="settings-item"><span class="settings-name"><span class="spinner"></span></span></li>
+          </ul>
+          <div class="settings-add">
+            <input id="class-input" class="linput" type="text" placeholder="e.g. ESS 499 Special Topics" style="flex:1;" onkeydown="if(event.key==='Enter')addSetting('class')" />
+            <button class="btn btn-primary btn-sm" onclick="addSetting('class')">Add</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- API Configuration -->
+    <div class="glass anim d3" style="padding:24px;margin-top:20px;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:6px;">⚙️ API Configuration</div>
+      <div style="font-size:.75rem;color:var(--text-3);margin-bottom:16px;">
+        The Apps Script Web App URL is set in <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-size:.75rem;">api.js</code>.
+        After deploying your Apps Script, replace <code style="background:rgba(255,255,255,.08);padding:2px 6px;border-radius:4px;font-size:.75rem;">YOUR_APPS_SCRIPT_URL_HERE</code> with your Web App URL.
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div id="api-status" style="font-size:.82rem;color:var(--text-3);">Checking connection…</div>
+        <button class="btn btn-ghost btn-sm" onclick="testConnection()">Test Connection</button>
+      </div>
+    </div>
+
+    <!-- Setup Instructions -->
+    <div class="glass anim d4" style="padding:24px;margin-top:20px;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:14px;">📋 First-Time Setup Instructions</div>
+      <ol style="list-style:none;display:flex;flex-direction:column;gap:12px;">
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">1</span>
+          <div>
+            <div style="font-size:.84rem;font-weight:500;color:var(--text-1);">Create a Google Sheet</div>
+            <div style="font-size:.75rem;color:var(--text-3);margin-top:3px;">Go to sheets.google.com and create a new blank spreadsheet.</div>
+          </div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">2</span>
+          <div>
+            <div style="font-size:.84rem;font-weight:500;color:var(--text-1);">Open Apps Script</div>
+            <div style="font-size:.75rem;color:var(--text-3);margin-top:3px;">In the Sheet, click Extensions → Apps Script. Paste the contents of <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">Code.gs</code> and save.</div>
+          </div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">3</span>
+          <div>
+            <div style="font-size:.84rem;font-weight:500;color:var(--text-1);">Initialize the Sheets</div>
+            <div style="font-size:.75rem;color:var(--text-3);margin-top:3px;">In the Apps Script editor, select the function <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">initializeSheets</code> from the dropdown and click Run. Authorize when prompted.</div>
+          </div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">4</span>
+          <div>
+            <div style="font-size:.84rem;font-weight:500;color:var(--text-1);">Deploy as Web App</div>
+            <div style="font-size:.75rem;color:var(--text-3);margin-top:3px;">Click Deploy → New Deployment → Web App. Set Execute as: <em>Me</em>, Who has access: <em>Anyone</em> (or your org). Copy the Web App URL.</div>
+          </div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--green-soft);color:var(--green);width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">5</span>
+          <div>
+            <div style="font-size:.84rem;font-weight:500;color:var(--text-1);">Paste URL into api.js</div>
+            <div style="font-size:.75rem;color:var(--text-3);margin-top:3px;">Open <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">api.js</code> and replace <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">YOUR_APPS_SCRIPT_URL_HERE</code> with your URL. You're live!</div>
+          </div>
+        </li>
+      </ol>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Settings</span>
+    </div>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+
+    let staffList   = [];
+    let vendorList  = [];
+    let classList   = [];
+
+    async function load() {
+      try {
+        const [stf, ven, cls] = await Promise.all([
+          apiGet('getStaff'),
+          apiGet('getVendors'),
+          apiGet('getClasses')
+        ]);
+        staffList  = stf || [];
+        vendorList = ven || [];
+        classList  = cls || [];
+        renderAll();
+        testConnection(true);
+      } catch (e) { /* toast shown */ }
+    }
+
+    const SETTINGS_CFG = {
+      staff:  { list: () => staffList,  inputId: 'staff-input',  addAction: 'addStaff',  deleteAction: 'deleteStaff',  label: 'Staff member', note: 'Existing log entries are not affected.' },
+      vendor: { list: () => vendorList, inputId: 'vendor-input', addAction: 'addVendor', deleteAction: 'deleteVendor', label: 'Vendor',        note: null },
+      class:  { list: () => classList,  inputId: 'class-input',  addAction: 'addClass',  deleteAction: 'deleteClass',  label: 'Class',         note: 'Existing log entries are not affected.' }
+    };
+
+    function renderAll() {
+      Object.entries(SETTINGS_CFG).forEach(([type, cfg]) => {
+        renderList(type + '-list', cfg.list(), type);
+      });
+    }
+
+    function renderList(listId, data, type) {
+      const ul = document.getElementById(listId);
+      if (data.length === 0) {
+        ul.innerHTML = '<li class="settings-item"><span class="settings-name" style="color:var(--text-3);">None added yet</span></li>';
+        return;
+      }
+      ul.innerHTML = data.map(item => `
+        <li class="settings-item">
+          <span class="settings-name">${esc(item['Name'])}</span>
+          <button class="btn btn-danger btn-sm" onclick="deleteSetting('${type}','${esc(item['ID'])}','${esc(item['Name'])}')">Remove</button>
+        </li>`).join('');
+    }
+
+    async function addSetting(type) {
+      const cfg = SETTINGS_CFG[type];
+      const val = document.getElementById(cfg.inputId).value.trim();
+      if (!val) { showToast('Enter a ' + cfg.label.toLowerCase(), 'error'); return; }
+      if (cfg.list().some(s => s['Name'].toLowerCase() === val.toLowerCase())) {
+        showToast('That ' + cfg.label.toLowerCase() + ' already exists', 'warning'); return;
+      }
+      await apiPost({ action: cfg.addAction, row: { 'Name': val } });
+      showToast(cfg.label + ' added');
+      document.getElementById(cfg.inputId).value = '';
+      await load();
+    }
+
+    async function deleteSetting(type, id, name) {
+      const cfg = SETTINGS_CFG[type];
+      const msg = 'Remove "' + name + '"?' + (cfg.note ? ' ' + cfg.note : '');
+      if (!confirm(msg)) return;
+      await apiPost({ action: cfg.deleteAction, id });
+      showToast('Removed: ' + name);
+      await load();
+    }
+
+    async function testConnection(silent) {
+      const el = document.getElementById('api-status');
+      el.textContent = 'Testing…'; el.style.color = 'var(--text-3)';
+      try {
+        const res = await apiGet('getClasses');
+        if (Array.isArray(res)) {
+          el.textContent = '✓ Connected — API responding normally';
+          el.style.color = 'var(--green)';
+        }
+      } catch (e) {
+        el.textContent = '✗ Not connected — check API_URL in api.js';
+        el.style.color = 'var(--rose)';
+        if (!silent) showToast('Connection failed', 'error');
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

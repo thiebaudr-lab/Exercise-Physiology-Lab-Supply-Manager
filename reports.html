@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Reports</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link">Consumables</a>
+          <a href="hardware.html"    class="nav-link">Hardware</a>
+          <a href="daily-log.html"   class="nav-link">Daily Log</a>
+          <a href="reports.html"     class="nav-link active">Reports</a>
+          <a href="settings.html"    class="nav-link">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Analytics & Export</div>
+      <h1 class="page-title">Reports</h1>
+      <p class="page-subtitle">Filter usage data, identify reorder needs, and review calibration status.</p>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="glass anim d2 no-print" style="padding:20px 24px;margin-bottom:24px;">
+      <div style="font-size:.72rem;font-weight:600;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:14px;">Filter Reports</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;">
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label class="form-label">Class</label>
+          <select id="f-class" class="linput" onchange="runReports()" style="cursor:pointer;min-width:200px;">
+            <option value="">All Classes</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label class="form-label">From Date</label>
+          <input id="f-from" type="date" class="linput" onchange="runReports()" />
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          <label class="form-label">To Date</label>
+          <input id="f-to" type="date" class="linput" onchange="runReports()" />
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear Filters</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print Report</button>
+        <button class="btn btn-primary btn-sm" onclick="exportAll()">Export All CSV</button>
+      </div>
+    </div>
+
+    <!-- Report 1: Usage Summary -->
+    <div class="report-section anim d3">
+      <div class="report-section-title">
+        📊 Usage Summary
+        <span class="pill pill-blue" id="usage-badge" style="font-size:.62rem;">0 items</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Supply Usage by Item</div>
+            <div class="table-sub" id="usage-sub">Filtered by selected criteria</div>
+          </div>
+          <button class="btn btn-ghost btn-sm no-print" onclick="exportUsage()">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Type</th>
+                <th>Total Used</th>
+                <th>Sessions</th>
+                <th>Most Used By</th>
+                <th>Most Used In</th>
+              </tr>
+            </thead>
+            <tbody id="usage-tbody">
+              <tr><td colspan="6"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report 2: Low Stock -->
+    <div class="report-section anim d4">
+      <div class="report-section-title">
+        ⚠️ Reorder Report
+        <span class="pill pill-rose" id="reorder-badge" style="font-size:.62rem;">0 items</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Items Needing Reorder</div>
+            <div class="table-sub">Quantity at or below reorder threshold</div>
+          </div>
+          <button class="btn btn-ghost btn-sm no-print" onclick="exportReorder()">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Vendor</th>
+                <th>Current Qty</th>
+                <th>Reorder At</th>
+                <th>Shortfall</th>
+                <th>Cost/Unit</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="reorder-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Report 3: Calibration Status -->
+    <div class="report-section anim d5">
+      <div class="report-section-title">
+        🔧 Calibration Status
+        <span class="pill pill-amber" id="cal-badge" style="font-size:.62rem;">0 items</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Hardware Calibration & Service</div>
+            <div class="table-sub">All equipment requiring calibration</div>
+          </div>
+          <button class="btn btn-ghost btn-sm no-print" onclick="exportCal()">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Equipment</th>
+                <th>Vendor</th>
+                <th>Last Calibration</th>
+                <th>Next Calibration</th>
+                <th>Cal. Status</th>
+                <th>Next Service</th>
+                <th>Service Status</th>
+              </tr>
+            </thead>
+            <tbody id="cal-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Reports — Generated <span id="gen-time"></span></span>
+    </div>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+    document.getElementById('gen-time').textContent = new Date().toLocaleString();
+
+    let allLog      = [];
+    let allCons     = [];
+    let allHardware = [];
+    let classes     = [];
+
+    async function load() {
+      try {
+        const [logData, cons, hw, cls] = await Promise.all([
+          apiGet('getDailyLog'),
+          apiGet('getConsumables'),
+          apiGet('getHardware'),
+          apiGet('getClasses')
+        ]);
+        allLog      = logData || [];
+        allCons     = cons    || [];
+        allHardware = hw      || [];
+        classes     = cls     || [];
+        populateClassFilter();
+        runReports();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function populateClassFilter() {
+      const sel = document.getElementById('f-class');
+      while (sel.options.length > 1) sel.remove(1);
+      classes.forEach(c => {
+        const o = document.createElement('option'); o.value = c['Name']; o.textContent = c['Name']; sel.appendChild(o);
+      });
+    }
+
+    function getFilteredLog() {
+      const cls  = document.getElementById('f-class').value;
+      const from = document.getElementById('f-from').value;
+      const to   = document.getElementById('f-to').value;
+      return allLog.filter(e => {
+        const matchC = !cls  || e['Class'] === cls;
+        const matchF = !from || String(e['Date']) >= from;
+        const matchT = !to   || String(e['Date']) <= to;
+        return matchC && matchF && matchT;
+      });
+    }
+
+    function runReports() {
+      document.getElementById('gen-time').textContent = new Date().toLocaleString();
+      renderUsageReport();
+      renderReorderReport();
+      renderCalReport();
+    }
+
+    // ── Usage Report ──
+    let usageData = [];
+    function renderUsageReport() {
+      const log = getFilteredLog();
+      const cls = document.getElementById('f-class').value;
+      const fromLabel = document.getElementById('f-from').value || 'all time';
+      const toLabel   = document.getElementById('f-to').value || 'present';
+      document.getElementById('usage-sub').textContent =
+        (cls || 'All classes') + ' · ' + fromLabel + ' → ' + toLabel;
+
+      // Pivot by item
+      const pivot = {};
+      log.forEach(e => {
+        const key = e['Item Name'];
+        if (!key) return;
+        if (!pivot[key]) pivot[key] = { name: key, type: e['Item Type'], total: 0, sessions: 0, users: {}, classes: {} };
+        pivot[key].total    += Number(e['Quantity Used']) || 0;
+        pivot[key].sessions += 1;
+        pivot[key].users[e['Used By'] || 'Unknown']  = (pivot[key].users[e['Used By'] || 'Unknown']  || 0) + 1;
+        pivot[key].classes[e['Class'] || 'Unknown'] = (pivot[key].classes[e['Class'] || 'Unknown'] || 0) + 1;
+      });
+
+      usageData = Object.values(pivot).sort((a, b) => b.total - a.total);
+      document.getElementById('usage-badge').textContent = usageData.length + ' items';
+
+      const tbody = document.getElementById('usage-tbody');
+      if (usageData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No usage data for selected filters.</div></div></td></tr>';
+        return;
+      }
+      const topUser  = d => Object.entries(d).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+      const topClass = d => Object.entries(d).sort((a,b) => b[1]-a[1])[0]?.[0] || '—';
+      tbody.innerHTML = usageData.map(r => `<tr>
+        <td style="font-weight:500;color:var(--text-1);">${esc(r.name)}</td>
+        <td><span class="pill ${r.type==='Consumable'?'pill-green':'pill-blue'}" style="font-size:.62rem;">${esc(r.type)}</span></td>
+        <td style="font-weight:600;color:var(--text-1);">${r.total}</td>
+        <td>${r.sessions}</td>
+        <td>${esc(topUser(r.users))}</td>
+        <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(topClass(r.classes))}</span></td>
+      </tr>`).join('');
+    }
+
+    // ── Reorder Report ──
+    let reorderData = [];
+    function renderReorderReport() {
+      reorderData = allCons.filter(c => {
+        const q = Number(c['Quantity']) || 0;
+        const t = Number(c['Reorder Threshold']) || 0;
+        return t > 0 && q <= t;
+      }).sort((a, b) => (Number(a['Quantity'])||0) - (Number(b['Quantity'])||0));
+
+      document.getElementById('reorder-badge').textContent = reorderData.length + ' items';
+      const tbody = document.getElementById('reorder-tbody');
+      if (reorderData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">All stock levels are above reorder thresholds.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = reorderData.map(c => {
+        const qty  = Number(c['Quantity']) || 0;
+        const thr  = Number(c['Reorder Threshold']) || 0;
+        const diff = thr - qty;
+        const cost = Number(c['Cost Per Unit']);
+        return `<tr class="${qty === 0 ? 'row-critical' : 'row-low'}">
+          <td style="font-weight:500;color:var(--text-1);">${esc(c['Name'])}</td>
+          <td>${esc(c['Vendor'] || '—')}</td>
+          <td style="font-weight:600;color:${qty===0?'var(--rose)':'var(--amber)'};">${qty}</td>
+          <td style="color:var(--text-3);">${thr}</td>
+          <td style="color:var(--rose);font-weight:600;">−${diff}</td>
+          <td>${cost ? '$' + cost.toFixed(2) : '—'}</td>
+          <td>${stockPill(qty, thr)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Calibration Report ──
+    let calData = [];
+    function renderCalReport() {
+      calData = allHardware.filter(h => h['Needs Calibration'] && h['Needs Calibration'] !== 'No');
+      calData.sort((a, b) => {
+        const da = daysUntil(a['Next Calibration']) ?? 9999;
+        const db = daysUntil(b['Next Calibration']) ?? 9999;
+        return da - db;
+      });
+      document.getElementById('cal-badge').textContent = calData.length + ' items';
+      const tbody = document.getElementById('cal-tbody');
+      if (calData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No equipment with calibration requirements.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = calData.map(h => {
+        const calD = daysUntil(h['Next Calibration']);
+        const rowCls = calD !== null && calD < 0 ? 'row-overdue' : calD !== null && calD <= 14 ? 'row-soon' : '';
+        return `<tr class="${rowCls}">
+          <td style="font-weight:500;color:var(--text-1);">${esc(h['Name'])}</td>
+          <td>${esc(h['Vendor'] || '—')}</td>
+          <td style="color:var(--text-3);">${fmtDate(h['Last Calibration'])}</td>
+          <td style="white-space:nowrap;">${fmtDate(h['Next Calibration'])}</td>
+          <td>${calPill(h['Next Calibration'], true)}</td>
+          <td style="white-space:nowrap;">${fmtDate(h['Next Service'])}</td>
+          <td>${servicePill(h['Next Service'])}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function clearFilters() {
+      document.getElementById('f-class').value = '';
+      document.getElementById('f-from').value  = '';
+      document.getElementById('f-to').value    = '';
+      runReports();
+    }
+
+    function exportUsage() {
+      const rows = usageData.map(r => ({
+        'Item': r.name, 'Type': r.type, 'Total Used': r.total, 'Sessions': r.sessions
+      }));
+      downloadCSV(rows, 'usage-report-' + today() + '.csv');
+    }
+    function exportReorder() {
+      downloadCSV(reorderData.map(c => ({
+        'Name': c['Name'], 'Vendor': c['Vendor'], 'Quantity': c['Quantity'],
+        'Reorder Threshold': c['Reorder Threshold'], 'Cost Per Unit': c['Cost Per Unit']
+      })), 'reorder-report-' + today() + '.csv');
+    }
+    function exportCal() {
+      downloadCSV(calData.map(h => ({
+        'Name': h['Name'], 'Vendor': h['Vendor'],
+        'Last Calibration': h['Last Calibration'], 'Next Calibration': h['Next Calibration'],
+        'Last Service': h['Last Service'], 'Next Service': h['Next Service']
+      })), 'calibration-report-' + today() + '.csv');
+    }
+    function exportAll() {
+      exportUsage(); exportReorder(); exportCal();
+    }
+
+    load();
+  </script>
+</body>
+</html>

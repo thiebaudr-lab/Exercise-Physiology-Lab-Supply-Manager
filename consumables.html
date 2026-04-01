@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Consumables</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link active">Consumables</a>
+          <a href="hardware.html"    class="nav-link">Hardware</a>
+          <a href="daily-log.html"   class="nav-link">Daily Log</a>
+          <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="settings.html"    class="nav-link">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Inventory Management</div>
+      <h1 class="page-title">Consumables</h1>
+      <p class="page-subtitle">Track supplies, quantities, and reorder thresholds.</p>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar anim d2 no-print">
+      <div class="toolbar-left">
+        <input id="search" type="text" class="linput" placeholder="Search by name or vendor…" style="width:220px;" oninput="filterTable()" />
+        <select id="vendor-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
+          <option value="">All Vendors</option>
+        </select>
+        <select id="stock-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
+          <option value="">All Stock Levels</option>
+          <option value="out">Out of Stock</option>
+          <option value="low">Low Stock</option>
+          <option value="ok">In Stock</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+        <button class="btn btn-primary" onclick="openAdd()">+ Add Consumable</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap anim d3">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Supply Inventory</div>
+          <div class="table-sub" id="table-sub">Loading…</div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="ltable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Vendor</th>
+              <th>Unit</th>
+              <th>Units/Pack</th>
+              <th>Quantity</th>
+              <th>Reorder At</th>
+              <th>Cost/Unit</th>
+              <th>Status</th>
+              <th class="no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="9"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span class="table-count" id="count"></span>
+        <button class="btn btn-ghost btn-sm no-print" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Consumables</span>
+    </div>
+  </main>
+
+  <!-- Add / Edit Modal -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Add Consumable</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group span2">
+            <label class="form-label">Item Name *</label>
+            <input id="f-name" class="form-input" type="text" placeholder="e.g. Lactate Strips" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vendor</label>
+            <select id="f-vendor" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Unit</label>
+            <input id="f-unit" class="form-input" type="text" placeholder="e.g. Box, Pack, Each" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Units Per Pack</label>
+            <input id="f-pack" class="form-input" type="number" min="1" placeholder="e.g. 50" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cost Per Unit ($)</label>
+            <input id="f-cost" class="form-input" type="number" min="0" step="0.01" placeholder="e.g. 12.99" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Current Quantity</label>
+            <input id="f-qty" class="form-input" type="number" min="0" placeholder="e.g. 100" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reorder Threshold</label>
+            <input id="f-threshold" class="form-input" type="number" min="0" placeholder="Alert when qty ≤ this" />
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Notes</label>
+            <textarea id="f-notes" class="form-input" placeholder="Optional notes…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button id="save-btn" class="btn btn-primary" onclick="save()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+
+    let allItems  = [];
+    let vendors   = [];
+    let editingId = null;
+
+    async function load() {
+      try {
+        const [items, vens] = await Promise.all([apiGet('getConsumables'), apiGet('getVendors')]);
+        allItems = items || [];
+        vendors  = vens  || [];
+        renderVendorFilter();
+        renderTable(allItems);
+        document.getElementById('table-sub').textContent = allItems.length + ' items · ' + allItems.filter(c => {
+          const q = Number(c['Quantity']) || 0, t = Number(c['Reorder Threshold']) || 0;
+          return t > 0 && q <= t;
+        }).length + ' low stock';
+      } catch (e) { /* toast shown by apiGet */ }
+    }
+
+    function renderVendorFilter() {
+      const sel = document.getElementById('vendor-filter');
+      while (sel.options.length > 1) sel.remove(1);
+      [...new Set(allItems.map(i => i['Vendor']).filter(Boolean))].sort().forEach(v => {
+        const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o);
+      });
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('tbody');
+      document.getElementById('count').textContent = data.length + ' of ' + allItems.length + ' items';
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🧪</div><div class="empty-text">No consumables found. Add one to get started.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(item => {
+        const qty  = Number(item['Quantity']) || 0;
+        const thr  = Number(item['Reorder Threshold']) || 0;
+        const isOut = qty === 0;
+        const isLow = thr > 0 && qty <= thr;
+        const rowCls = isOut ? 'row-critical' : isLow ? 'row-low' : '';
+        const cost   = Number(item['Cost Per Unit']);
+        return `<tr class="${rowCls}">
+          <td style="font-weight:500;color:var(--text-1);">${esc(item['Name'])}</td>
+          <td>${esc(item['Vendor'] || '—')}</td>
+          <td>${esc(item['Unit'] || '—')}</td>
+          <td>${esc(item['Units Per Pack'] || '—')}</td>
+          <td style="font-weight:600;color:${isOut?'var(--rose)':isLow?'var(--amber)':'var(--text-1)'};">${qty}</td>
+          <td style="color:var(--text-3);">${thr || '—'}</td>
+          <td>${cost ? '$' + cost.toFixed(2) : '—'}</td>
+          <td>${stockPill(qty, thr)}</td>
+          <td class="no-print">
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" onclick="openEdit('${esc(item['ID'])}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteItem('${esc(item['ID'])}','${esc(item['Name'])}')">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filterTable() {
+      const q   = document.getElementById('search').value.toLowerCase();
+      const v   = document.getElementById('vendor-filter').value;
+      const s   = document.getElementById('stock-filter').value;
+      const filtered = allItems.filter(item => {
+        const matchQ = !q || item['Name'].toLowerCase().includes(q) || (item['Vendor']||'').toLowerCase().includes(q);
+        const matchV = !v || item['Vendor'] === v;
+        const qty = Number(item['Quantity']) || 0;
+        const thr = Number(item['Reorder Threshold']) || 0;
+        const matchS = !s
+          || (s === 'out' && qty === 0)
+          || (s === 'low' && thr > 0 && qty <= thr && qty > 0)
+          || (s === 'ok'  && (thr === 0 || qty > thr));
+        return matchQ && matchV && matchS;
+      });
+      renderTable(filtered);
+    }
+
+    function openAdd() {
+      editingId = null;
+      document.getElementById('modal-title').textContent = 'Add Consumable';
+      document.getElementById('f-name').value = '';
+      document.getElementById('f-unit').value = '';
+      document.getElementById('f-pack').value = '';
+      document.getElementById('f-cost').value = '';
+      document.getElementById('f-qty').value  = '';
+      document.getElementById('f-threshold').value = '';
+      document.getElementById('f-notes').value = '';
+      populateVendorDropdown('');
+      openModal();
+    }
+
+    function openEdit(id) {
+      const item = allItems.find(c => String(c['ID']) === String(id));
+      if (!item) return;
+      editingId = id;
+      document.getElementById('modal-title').textContent = 'Edit Consumable';
+      document.getElementById('f-name').value      = item['Name'] || '';
+      document.getElementById('f-unit').value      = item['Unit'] || '';
+      document.getElementById('f-pack').value      = item['Units Per Pack'] || '';
+      document.getElementById('f-cost').value      = item['Cost Per Unit'] || '';
+      document.getElementById('f-qty').value       = item['Quantity'] || '';
+      document.getElementById('f-threshold').value = item['Reorder Threshold'] || '';
+      document.getElementById('f-notes').value     = item['Notes'] || '';
+      populateVendorDropdown(item['Vendor'] || '');
+      openModal();
+    }
+
+    function populateVendorDropdown(selected) {
+      populateSelect(document.getElementById('f-vendor'), vendors, 'Name', 'Name', selected, 'Select vendor…');
+    }
+
+    async function save() {
+      const name = document.getElementById('f-name').value.trim();
+      if (!name) { showToast('Item name is required', 'error'); return; }
+
+      const row = {
+        'Name'             : name,
+        'Vendor'           : document.getElementById('f-vendor').value,
+        'Unit'             : document.getElementById('f-unit').value.trim(),
+        'Units Per Pack'   : document.getElementById('f-pack').value,
+        'Cost Per Unit'    : document.getElementById('f-cost').value,
+        'Quantity'         : document.getElementById('f-qty').value,
+        'Reorder Threshold': document.getElementById('f-threshold').value,
+        'Notes'            : document.getElementById('f-notes').value.trim()
+      };
+
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        if (editingId) {
+          await apiPost({ action: 'updateConsumable', id: editingId, row });
+          showToast('Consumable updated');
+        } else {
+          await apiPost({ action: 'addConsumable', row });
+          showToast('Consumable added');
+        }
+        closeModal();
+        await load();
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+    }
+
+    async function deleteItem(id, name) {
+      if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+      try {
+        await apiPost({ action: 'deleteConsumable', id });
+        showToast('Deleted: ' + name);
+        await load();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function exportCSV() {
+      downloadCSV(allItems, 'consumables-' + today() + '.csv');
+    }
+
+    load();
+  </script>
+</body>
+</html>

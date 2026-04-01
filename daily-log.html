@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Daily Log</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link">Consumables</a>
+          <a href="hardware.html"    class="nav-link">Hardware</a>
+          <a href="daily-log.html"   class="nav-link active">Daily Log</a>
+          <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="settings.html"    class="nav-link">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Usage Tracking</div>
+      <h1 class="page-title">Daily Log</h1>
+      <p class="page-subtitle">Record supply usage and equipment sessions. Consumable quantities are automatically decremented.</p>
+    </div>
+
+    <!-- Log Entry Form -->
+    <div class="glass anim d2" style="padding:24px;margin-bottom:24px;" id="entry-form-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-family:var(--font-display);font-weight:600;font-size:1rem;color:var(--text-1);">New Log Entry</div>
+          <div style="font-size:.72rem;color:var(--text-3);margin-top:2px;">All fields except Notes are required</div>
+        </div>
+        <span id="form-mode-badge" class="pill pill-blue">New Entry</span>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Date *</label>
+          <input id="f-date" class="form-input" type="date" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Item Type *</label>
+          <select id="f-type" class="form-input" onchange="onTypeChange()">
+            <option value="Consumable">Consumable</option>
+            <option value="Hardware">Hardware</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Item Name *</label>
+          <select id="f-item" class="form-input">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantity Used *</label>
+          <input id="f-qty" class="form-input" type="number" min="1" placeholder="e.g. 3" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Class *</label>
+          <select id="f-class" class="form-input">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Used By *</label>
+          <select id="f-user" class="form-input">
+            <option value="">Loading…</option>
+          </select>
+        </div>
+        <div class="form-group span2">
+          <label class="form-label">Notes</label>
+          <textarea id="f-notes" class="form-input" placeholder="Optional notes about this session…" style="min-height:56px;"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:16px;justify-content:flex-end;">
+        <button id="cancel-edit-btn" class="btn btn-ghost" style="display:none;" onclick="cancelEdit()">Cancel Edit</button>
+        <button id="submit-btn" class="btn btn-primary" onclick="submitEntry()">Log Entry</button>
+      </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="table-wrap anim d3">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Log History</div>
+          <div class="table-sub" id="table-sub">Loading…</div>
+        </div>
+        <div class="toolbar-left no-print">
+          <select id="class-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
+            <option value="">All Classes</option>
+          </select>
+          <input id="date-from" type="date" class="linput" onchange="filterTable()" title="From date" />
+          <input id="date-to"   type="date" class="linput" onchange="filterTable()" title="To date" />
+          <button class="btn btn-ghost btn-sm" onclick="clearFilters()">Clear</button>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="ltable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Item</th>
+              <th>Type</th>
+              <th>Qty Used</th>
+              <th>Class</th>
+              <th>Used By</th>
+              <th>Notes</th>
+              <th class="no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="8"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span class="table-count" id="count"></span>
+        <button class="btn btn-ghost btn-sm no-print" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Daily Log</span>
+    </div>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+
+    let allLog       = [];
+    let consumables  = [];
+    let hardware     = [];
+    let classes      = [];
+    let staff        = [];
+    let editingId    = null;
+
+    async function load() {
+      try {
+        const [logData, cons, hw, cls, stf] = await Promise.all([
+          apiGet('getDailyLog'),
+          apiGet('getConsumables'),
+          apiGet('getHardware'),
+          apiGet('getClasses'),
+          apiGet('getStaff')
+        ]);
+        allLog      = logData || [];
+        consumables = cons    || [];
+        hardware    = hw      || [];
+        classes     = cls     || [];
+        staff       = stf     || [];
+        populateDropdowns();
+        populateClassFilter();
+        renderTable(allLog);
+        document.getElementById('table-sub').textContent = allLog.length + ' entries total';
+      } catch (e) { /* toast shown */ }
+    }
+
+    function populateDropdowns() {
+      // Set default date to today
+      document.getElementById('f-date').value = today();
+      // Item dropdown (starts with consumables)
+      onTypeChange();
+      // Class dropdown
+      populateSelect(document.getElementById('f-class'), classes, 'Name', 'Name', '', 'Select class…');
+      // Staff dropdown
+      populateSelect(document.getElementById('f-user'), staff, 'Name', 'Name', '', 'Select person…');
+    }
+
+    function onTypeChange() {
+      const type = document.getElementById('f-type').value;
+      const items = type === 'Consumable' ? consumables : hardware;
+      populateSelect(document.getElementById('f-item'), items, 'Name', 'Name', '', 'Select item…');
+    }
+
+    function populateClassFilter() {
+      const sel = document.getElementById('class-filter');
+      while (sel.options.length > 1) sel.remove(1);
+      classes.forEach(c => {
+        const o = document.createElement('option'); o.value = c['Name']; o.textContent = c['Name']; sel.appendChild(o);
+      });
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('tbody');
+      document.getElementById('count').textContent = data.length + ' entries';
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No log entries found.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(e => `<tr>
+        <td style="white-space:nowrap;color:var(--text-2);">${fmtDate(e['Date'])}</td>
+        <td style="font-weight:500;color:var(--text-1);">${esc(e['Item Name'])}</td>
+        <td><span class="pill ${e['Item Type']==='Consumable'?'pill-green':'pill-blue'}" style="font-size:.62rem;">${esc(e['Item Type'])}</span></td>
+        <td style="font-weight:600;color:var(--text-1);">${esc(e['Quantity Used'])}</td>
+        <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(e['Class'])}</span></td>
+        <td>${esc(e['Used By'])}</td>
+        <td style="font-size:.75rem;color:var(--text-3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(e['Notes'])}">${esc(e['Notes'] || '—')}</td>
+        <td class="no-print">
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-sm" onclick="openEdit('${esc(e['ID'])}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteEntry('${esc(e['ID'])}')">Delete</button>
+          </div>
+        </td>
+      </tr>`).join('');
+    }
+
+    function filterTable() {
+      const cls   = document.getElementById('class-filter').value;
+      const from  = document.getElementById('date-from').value;
+      const to    = document.getElementById('date-to').value;
+      const filtered = allLog.filter(e => {
+        const matchC = !cls  || e['Class'] === cls;
+        const matchF = !from || String(e['Date']) >= from;
+        const matchT = !to   || String(e['Date']) <= to;
+        return matchC && matchF && matchT;
+      });
+      renderTable(filtered);
+      document.getElementById('table-sub').textContent = filtered.length + ' of ' + allLog.length + ' entries';
+    }
+
+    function clearFilters() {
+      document.getElementById('class-filter').value = '';
+      document.getElementById('date-from').value    = '';
+      document.getElementById('date-to').value      = '';
+      renderTable(allLog);
+      document.getElementById('table-sub').textContent = allLog.length + ' entries total';
+    }
+
+    async function submitEntry() {
+      const date  = document.getElementById('f-date').value;
+      const type  = document.getElementById('f-type').value;
+      const item  = document.getElementById('f-item').value;
+      const qty   = document.getElementById('f-qty').value;
+      const cls   = document.getElementById('f-class').value;
+      const user  = document.getElementById('f-user').value;
+
+      if (!date || !item || !qty || !cls || !user) {
+        showToast('Please fill in all required fields', 'error'); return;
+      }
+
+      const row = {
+        'Date'         : date,
+        'Item Name'    : item,
+        'Item Type'    : type,
+        'Quantity Used': qty,
+        'Class'        : cls,
+        'Used By'      : user,
+        'Notes'        : document.getElementById('f-notes').value.trim()
+      };
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        if (editingId) {
+          await apiPost({ action: 'updateLogEntry', id: editingId, row });
+          showToast('Entry updated');
+          cancelEdit();
+        } else {
+          await apiPost({ action: 'addLogEntry', row });
+          showToast('Entry logged' + (type === 'Consumable' ? ' · Inventory decremented' : ''));
+          // Reset form
+          document.getElementById('f-qty').value   = '';
+          document.getElementById('f-notes').value = '';
+          document.getElementById('f-date').value  = today();
+        }
+        await load();
+      } finally {
+        btn.disabled = false; btn.textContent = editingId ? 'Update Entry' : 'Log Entry';
+      }
+    }
+
+    function openEdit(id) {
+      const entry = allLog.find(e => String(e['ID']) === String(id));
+      if (!entry) return;
+      editingId = id;
+
+      document.getElementById('f-date').value  = entry['Date'] || '';
+      document.getElementById('f-type').value  = entry['Item Type'] || 'Consumable';
+      onTypeChange();
+      document.getElementById('f-item').value  = entry['Item Name'] || '';
+      document.getElementById('f-qty').value   = entry['Quantity Used'] || '';
+      document.getElementById('f-class').value = entry['Class'] || '';
+      document.getElementById('f-user').value  = entry['Used By'] || '';
+      document.getElementById('f-notes').value = entry['Notes'] || '';
+
+      document.getElementById('submit-btn').textContent   = 'Update Entry';
+      document.getElementById('cancel-edit-btn').style.display = 'inline-flex';
+      document.getElementById('form-mode-badge').textContent  = 'Editing Entry';
+      document.getElementById('form-mode-badge').className    = 'pill pill-amber';
+      document.getElementById('entry-form-card').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function cancelEdit() {
+      editingId = null;
+      document.getElementById('f-date').value  = today();
+      document.getElementById('f-type').value  = 'Consumable';
+      onTypeChange();
+      document.getElementById('f-qty').value   = '';
+      document.getElementById('f-notes').value = '';
+      document.getElementById('submit-btn').textContent        = 'Log Entry';
+      document.getElementById('cancel-edit-btn').style.display = 'none';
+      document.getElementById('form-mode-badge').textContent   = 'New Entry';
+      document.getElementById('form-mode-badge').className     = 'pill pill-blue';
+    }
+
+    async function deleteEntry(id) {
+      if (!confirm('Delete this log entry? The inventory will NOT be automatically restored.')) return;
+      try {
+        await apiPost({ action: 'deleteLogEntry', id });
+        showToast('Entry deleted');
+        await load();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function exportCSV() {
+      downloadCSV(allLog, 'daily-log-' + today() + '.csv');
+    }
+
+    load();
+  </script>
+</body>
+</html>

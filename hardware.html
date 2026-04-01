@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Hardware</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link">Consumables</a>
+          <a href="hardware.html"    class="nav-link active">Hardware</a>
+          <a href="daily-log.html"   class="nav-link">Daily Log</a>
+          <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="settings.html"    class="nav-link">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Equipment Management</div>
+      <h1 class="page-title">Hardware</h1>
+      <p class="page-subtitle">Track equipment, calibration schedules, and service dates.</p>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar anim d2 no-print">
+      <div class="toolbar-left">
+        <input id="search" type="text" class="linput" placeholder="Search by name or vendor…" style="width:220px;" oninput="filterTable()" />
+        <select id="status-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
+          <option value="">All Status</option>
+          <option value="overdue">Calibration Overdue</option>
+          <option value="soon">Calibration Due Soon</option>
+          <option value="ok">OK</option>
+        </select>
+      </div>
+      <div class="toolbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
+        <button class="btn btn-primary" onclick="openAdd()">+ Add Hardware</button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrap anim d3">
+      <div class="table-header">
+        <div>
+          <div class="table-title">Equipment Inventory</div>
+          <div class="table-sub" id="table-sub">Loading…</div>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table class="ltable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Vendor</th>
+              <th>Purchase Date</th>
+              <th>Warranty Exp.</th>
+              <th>Calibration</th>
+              <th>Next Cal.</th>
+              <th>Next Service</th>
+              <th>Status</th>
+              <th class="no-print">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="9"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="table-footer">
+        <span class="table-count" id="count"></span>
+        <button class="btn btn-ghost btn-sm no-print" onclick="exportCSV()">Export CSV</button>
+      </div>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Hardware</span>
+    </div>
+  </main>
+
+  <!-- Add / Edit Modal -->
+  <div id="modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal()">
+    <div class="modal-box modal-box-lg">
+      <div class="modal-header">
+        <span class="modal-title" id="modal-title">Add Hardware</span>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group span2">
+            <label class="form-label">Equipment Name *</label>
+            <input id="f-name" class="form-input" type="text" placeholder="e.g. ParvoMedics TrueOne 2400" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vendor / Manufacturer</label>
+            <select id="f-vendor" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="f-status" class="form-input">
+              <option value="Active">Active</option>
+              <option value="In Maintenance">In Maintenance</option>
+              <option value="Out of Service">Out of Service</option>
+              <option value="Retired">Retired</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Purchase Date</label>
+            <input id="f-purchase" class="form-input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cost ($)</label>
+            <input id="f-cost" class="form-input" type="number" min="0" step="0.01" placeholder="e.g. 4500.00" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Warranty Expiry</label>
+            <input id="f-warranty" class="form-input" type="date" />
+          </div>
+
+          <!-- Calibration Section -->
+          <div class="form-group span2">
+            <label class="form-check" style="margin-top:8px;">
+              <input type="checkbox" id="f-needs-cal" onchange="toggleCalFields()" />
+              <span class="form-check-label">This equipment requires periodic calibration</span>
+            </label>
+          </div>
+          <div id="cal-fields" style="display:contents;">
+            <div class="form-group">
+              <label class="form-label">Last Calibration</label>
+              <input id="f-last-cal" class="form-input" type="date" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Next Calibration Due</label>
+              <input id="f-next-cal" class="form-input" type="date" />
+            </div>
+          </div>
+
+          <!-- Service Section -->
+          <div class="form-group">
+            <label class="form-label">Last Service</label>
+            <input id="f-last-svc" class="form-input" type="date" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Service Due</label>
+            <input id="f-next-svc" class="form-input" type="date" />
+          </div>
+
+          <div class="form-group span2">
+            <label class="form-label">Notes</label>
+            <textarea id="f-notes" class="form-input" placeholder="Serial number, contact info, special instructions…"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button id="save-btn" class="btn btn-primary" onclick="save()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+
+    let allItems  = [];
+    let vendors   = [];
+    let editingId = null;
+
+    async function load() {
+      try {
+        const [items, vens] = await Promise.all([apiGet('getHardware'), apiGet('getVendors')]);
+        allItems = items || [];
+        vendors  = vens  || [];
+
+        const calAlerts = allItems.filter(h => {
+          if (!h['Needs Calibration'] || h['Needs Calibration'] === 'No') return false;
+          const d = daysUntil(h['Next Calibration']);
+          return d !== null && d <= 14;
+        });
+
+        document.getElementById('table-sub').textContent =
+          allItems.length + ' items · ' + calAlerts.length + ' calibration alert' + (calAlerts.length !== 1 ? 's' : '');
+        renderTable(allItems);
+      } catch (e) { /* toast shown */ }
+    }
+
+    function renderTable(data) {
+      const tbody = document.getElementById('tbody');
+      document.getElementById('count').textContent = data.length + ' of ' + allItems.length + ' items';
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">⚙️</div><div class="empty-text">No hardware found. Add a piece of equipment to get started.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = data.map(item => {
+        const needsCal = item['Needs Calibration'] && item['Needs Calibration'] !== 'No';
+        const calD     = needsCal ? daysUntil(item['Next Calibration']) : null;
+        const svcD     = daysUntil(item['Next Service']);
+        const isOverdue = needsCal && calD !== null && calD < 0;
+        const isSoon    = needsCal && calD !== null && calD >= 0 && calD <= 14;
+        const rowCls    = isOverdue ? 'row-overdue' : isSoon ? 'row-soon' : '';
+        const cost      = Number(item['Cost']);
+        return `<tr class="${rowCls}">
+          <td style="font-weight:500;color:var(--text-1);white-space:nowrap;">${esc(item['Name'])}</td>
+          <td>${esc(item['Vendor'] || '—')}</td>
+          <td style="color:var(--text-3);white-space:nowrap;">${fmtDate(item['Purchase Date'])}</td>
+          <td style="color:var(--text-3);white-space:nowrap;">${fmtDate(item['Warranty Expiry'])}</td>
+          <td>${needsCal ? '<span class="pill pill-blue" style="font-size:.62rem;">Required</span>' : '<span class="pill" style="background:rgba(255,255,255,.05);color:var(--text-3);">None</span>'}</td>
+          <td style="white-space:nowrap;">${calPill(item['Next Calibration'], needsCal)}&nbsp;<span style="font-size:.72rem;color:var(--text-3);">${needsCal && item['Next Calibration'] ? fmtDate(item['Next Calibration']) : ''}</span></td>
+          <td style="white-space:nowrap;">${servicePill(item['Next Service'])}&nbsp;<span style="font-size:.72rem;color:var(--text-3);">${item['Next Service'] ? fmtDate(item['Next Service']) : ''}</span></td>
+          <td><span class="pill ${item['Status']==='Active'?'pill-green':item['Status']==='In Maintenance'?'pill-amber':'pill-rose'}">${esc(item['Status'] || 'Active')}</span></td>
+          <td class="no-print">
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" onclick="openEdit('${esc(item['ID'])}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteItem('${esc(item['ID'])}','${esc(item['Name'])}')">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    function filterTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const s = document.getElementById('status-filter').value;
+      const filtered = allItems.filter(item => {
+        const matchQ = !q || item['Name'].toLowerCase().includes(q) || (item['Vendor']||'').toLowerCase().includes(q);
+        const needsCal = item['Needs Calibration'] && item['Needs Calibration'] !== 'No';
+        const calD     = needsCal ? daysUntil(item['Next Calibration']) : null;
+        const matchS = !s
+          || (s === 'overdue' && needsCal && calD !== null && calD < 0)
+          || (s === 'soon'    && needsCal && calD !== null && calD >= 0 && calD <= 14)
+          || (s === 'ok'      && (!needsCal || calD === null || calD > 14));
+        return matchQ && matchS;
+      });
+      renderTable(filtered);
+    }
+
+    function toggleCalFields() {
+      const needsCal = document.getElementById('f-needs-cal').checked;
+      const fields   = document.querySelectorAll('#f-last-cal, #f-next-cal');
+      fields.forEach(f => {
+        f.closest('.form-group').style.opacity = needsCal ? '1' : '.4';
+        f.disabled = !needsCal;
+      });
+    }
+
+    function populateVendorDropdown(selected) {
+      populateSelect(document.getElementById('f-vendor'), vendors, 'Name', 'Name', selected, 'Select vendor…');
+    }
+
+    function openAdd() {
+      editingId = null;
+      document.getElementById('modal-title').textContent = 'Add Hardware';
+      document.getElementById('f-name').value      = '';
+      document.getElementById('f-status').value    = 'Active';
+      document.getElementById('f-purchase').value  = '';
+      document.getElementById('f-cost').value      = '';
+      document.getElementById('f-warranty').value  = '';
+      document.getElementById('f-needs-cal').checked = false;
+      document.getElementById('f-last-cal').value  = '';
+      document.getElementById('f-next-cal').value  = '';
+      document.getElementById('f-last-svc').value  = '';
+      document.getElementById('f-next-svc').value  = '';
+      document.getElementById('f-notes').value     = '';
+      populateVendorDropdown('');
+      toggleCalFields();
+      openModal();
+    }
+
+    function openEdit(id) {
+      const item = allItems.find(h => String(h['ID']) === String(id));
+      if (!item) return;
+      editingId = id;
+      document.getElementById('modal-title').textContent = 'Edit Hardware';
+      document.getElementById('f-name').value      = item['Name'] || '';
+      document.getElementById('f-status').value    = item['Status'] || 'Active';
+      document.getElementById('f-purchase').value  = item['Purchase Date'] || '';
+      document.getElementById('f-cost').value      = item['Cost'] || '';
+      document.getElementById('f-warranty').value  = item['Warranty Expiry'] || '';
+      const needsCal = item['Needs Calibration'] && item['Needs Calibration'] !== 'No';
+      document.getElementById('f-needs-cal').checked = needsCal;
+      document.getElementById('f-last-cal').value  = item['Last Calibration'] || '';
+      document.getElementById('f-next-cal').value  = item['Next Calibration'] || '';
+      document.getElementById('f-last-svc').value  = item['Last Service'] || '';
+      document.getElementById('f-next-svc').value  = item['Next Service'] || '';
+      document.getElementById('f-notes').value     = item['Notes'] || '';
+      populateVendorDropdown(item['Vendor'] || '');
+      toggleCalFields();
+      openModal();
+    }
+
+    async function save() {
+      const name = document.getElementById('f-name').value.trim();
+      if (!name) { showToast('Equipment name is required', 'error'); return; }
+      const needsCal = document.getElementById('f-needs-cal').checked;
+      const row = {
+        'Name'             : name,
+        'Vendor'           : document.getElementById('f-vendor').value,
+        'Status'           : document.getElementById('f-status').value,
+        'Purchase Date'    : document.getElementById('f-purchase').value,
+        'Cost'             : document.getElementById('f-cost').value,
+        'Warranty Expiry'  : document.getElementById('f-warranty').value,
+        'Needs Calibration': needsCal ? 'Yes' : 'No',
+        'Last Calibration' : needsCal ? document.getElementById('f-last-cal').value : '',
+        'Next Calibration' : needsCal ? document.getElementById('f-next-cal').value : '',
+        'Last Service'     : document.getElementById('f-last-svc').value,
+        'Next Service'     : document.getElementById('f-next-svc').value,
+        'Notes'            : document.getElementById('f-notes').value.trim()
+      };
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        if (editingId) {
+          await apiPost({ action: 'updateHardware', id: editingId, row });
+          showToast('Hardware updated');
+        } else {
+          await apiPost({ action: 'addHardware', row });
+          showToast('Hardware added');
+        }
+        closeModal();
+        await load();
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+    }
+
+    async function deleteItem(id, name) {
+      if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
+      try {
+        await apiPost({ action: 'deleteHardware', id });
+        showToast('Deleted: ' + name);
+        await load();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function exportCSV() {
+      downloadCSV(allItems, 'hardware-' + today() + '.csv');
+    }
+
+    load();
+  </script>
+</body>
+</html>
