@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ExPhys LIMS — Consumables</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .class-tabs { display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px; }
+    .class-tab {
+      padding:7px 16px;border-radius:100px;font-size:.78rem;font-weight:600;cursor:pointer;
+      border:1px solid var(--border);background:var(--panel);color:var(--text-2);
+      transition:all .2s;
+    }
+    .class-tab:hover { background:var(--panel-hov);color:var(--text-1); }
+    .class-tab.active { background:rgba(79,142,247,.15);border-color:rgba(79,142,247,.4);color:var(--blue); }
+  </style>
 </head>
 <body>
   <div class="orb orb-1"></div>
@@ -44,16 +54,16 @@
     <div class="page-header anim d1">
       <div class="eyebrow">Inventory Management</div>
       <h1 class="page-title">Consumables</h1>
-      <p class="page-subtitle">Track supplies, quantities, and reorder thresholds.</p>
+      <p class="page-subtitle">Inventory is tracked per class. Use the Daily Log to record usage — items are created automatically.</p>
     </div>
+
+    <!-- Class Filter Tabs -->
+    <div class="class-tabs anim d2 no-print" id="class-tabs"></div>
 
     <!-- Toolbar -->
     <div class="toolbar anim d2 no-print">
       <div class="toolbar-left">
-        <input id="search" type="text" class="linput" placeholder="Search by name or vendor…" style="width:220px;" oninput="filterTable()" />
-        <select id="vendor-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
-          <option value="">All Vendors</option>
-        </select>
+        <input id="search" type="text" class="linput" placeholder="Search by name…" style="width:200px;" oninput="filterTable()" />
         <select id="stock-filter" class="linput" onchange="filterTable()" style="cursor:pointer;">
           <option value="">All Stock Levels</option>
           <option value="out">Out of Stock</option>
@@ -63,7 +73,7 @@
       </div>
       <div class="toolbar-right">
         <button class="btn btn-ghost btn-sm" onclick="window.print()">🖨 Print</button>
-        <button class="btn btn-primary" onclick="openAdd()">+ Add Consumable</button>
+        <button class="btn btn-primary" onclick="openAdd()">+ Add / Set Stock</button>
       </div>
     </div>
 
@@ -71,7 +81,7 @@
     <div class="table-wrap anim d3">
       <div class="table-header">
         <div>
-          <div class="table-title">Supply Inventory</div>
+          <div class="table-title" id="table-title">Supply Inventory</div>
           <div class="table-sub" id="table-sub">Loading…</div>
         </div>
       </div>
@@ -80,9 +90,8 @@
           <thead>
             <tr>
               <th>Name</th>
+              <th>Class</th>
               <th>Vendor</th>
-              <th>Unit</th>
-              <th>Units/Pack</th>
               <th>Quantity</th>
               <th>Reorder At</th>
               <th>Cost/Unit</th>
@@ -91,7 +100,7 @@
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="9"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            <tr><td colspan="8"><div class="empty-state"><div class="spinner"></div></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -111,14 +120,25 @@
   <div id="modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title" id="modal-title">Add Consumable</span>
+        <span class="modal-title" id="modal-title">Add / Set Stock</span>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
       <div class="modal-body">
         <div class="form-grid">
           <div class="form-group span2">
             <label class="form-label">Item Name *</label>
-            <input id="f-name" class="form-input" type="text" placeholder="e.g. Lactate Strips" />
+            <select id="f-name" class="form-input" onchange="onItemNameChange()">
+              <option value="">Select item…</option>
+            </select>
+            <div id="new-item-row" style="display:none;margin-top:8px;display:flex;gap:8px;align-items:center;">
+              <input id="f-new-item" class="form-input" type="text" placeholder="Type new item name…" style="flex:1;" onkeydown="if(event.key==='Enter')saveNewItem()" />
+              <button class="btn btn-primary btn-sm" onclick="saveNewItem()">Add</button>
+              <button class="btn btn-ghost btn-sm" onclick="cancelNewItem()">Cancel</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Class *</label>
+            <select id="f-class" class="form-input"></select>
           </div>
           <div class="form-group">
             <label class="form-label">Vendor</label>
@@ -137,8 +157,9 @@
             <input id="f-cost" class="form-input" type="number" min="0" step="0.01" placeholder="e.g. 12.99" />
           </div>
           <div class="form-group">
-            <label class="form-label">Current Quantity</label>
-            <input id="f-qty" class="form-input" type="number" min="0" placeholder="e.g. 100" />
+            <label class="form-label">Quantity on Hand *</label>
+            <input id="f-qty" class="form-input" type="number" min="0" placeholder="Total individual units in stock" />
+            <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">e.g. enter 50 if you have 50 individual wipes</span>
           </div>
           <div class="form-group">
             <label class="form-label">Reorder Threshold</label>
@@ -157,6 +178,29 @@
     </div>
   </div>
 
+  <!-- Restock Modal -->
+  <div id="restock-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('restock-modal')">
+    <div class="modal-box" style="max-width:400px;">
+      <div class="modal-header">
+        <span class="modal-title">Restock Supply</span>
+        <button class="modal-close" onclick="closeModal('restock-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:.88rem;color:var(--text-1);font-weight:500;margin-bottom:4px;" id="restock-name"></div>
+        <div style="font-size:.75rem;color:var(--text-3);margin-bottom:18px;" id="restock-class"></div>
+        <div class="form-group">
+          <label class="form-label">Quantity Received *</label>
+          <input id="restock-qty" class="form-input" type="number" min="1" placeholder="How many units received?" />
+          <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">This will be added to the current stock on hand.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('restock-modal')">Cancel</button>
+        <button id="restock-btn" class="btn btn-primary" onclick="confirmRestock()">Add to Stock</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container"></div>
 
   <script src="api.js"></script>
@@ -164,94 +208,189 @@
     'use strict';
     startClock();
 
-    let allItems  = [];
-    let vendors   = [];
-    let editingId = null;
+    let allItems     = [];
+    let vendors      = [];
+    let itemsList    = [];
+    let classes      = [];
+    let editingId    = null;
+    let restockingId = null;
+    let activeClass  = '';  // '' = All Classes
 
     async function load() {
       try {
-        const [items, vens] = await Promise.all([apiGet('getConsumables'), apiGet('getVendors')]);
-        allItems = items || [];
-        vendors  = vens  || [];
-        renderVendorFilter();
-        renderTable(allItems);
-        document.getElementById('table-sub').textContent = allItems.length + ' items · ' + allItems.filter(c => {
-          const q = Number(c['Quantity']) || 0, t = Number(c['Reorder Threshold']) || 0;
-          return t > 0 && q <= t;
-        }).length + ' low stock';
+        const [items, vens, its, cls] = await Promise.all([
+          apiGet('getConsumables'),
+          apiGet('getVendors'),
+          apiGet('getItems'),
+          apiGet('getClasses')
+        ]);
+        allItems  = items || [];
+        vendors   = vens  || [];
+        itemsList = its   || [];
+        classes   = cls   || [];
+        renderClassTabs();
+        filterTable();
       } catch (e) { /* toast shown by apiGet */ }
     }
 
-    function renderVendorFilter() {
-      const sel = document.getElementById('vendor-filter');
-      while (sel.options.length > 1) sel.remove(1);
-      [...new Set(allItems.map(i => i['Vendor']).filter(Boolean))].sort().forEach(v => {
-        const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o);
+    // ── Class tabs ────────────────────────────────────────────
+
+    function renderClassTabs() {
+      const container = document.getElementById('class-tabs');
+      container.innerHTML = '';
+      const all = document.createElement('button');
+      all.className = 'class-tab' + (activeClass === '' ? ' active' : '');
+      all.textContent = 'All Classes';
+      all.onclick = () => setActiveClass('');
+      container.appendChild(all);
+      classes.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'class-tab' + (activeClass === c['Name'] ? ' active' : '');
+        btn.textContent = c['Name'];
+        btn.onclick = () => setActiveClass(c['Name']);
+        container.appendChild(btn);
       });
+    }
+
+    function setActiveClass(cls) {
+      activeClass = cls;
+      renderClassTabs();
+      filterTable();
+    }
+
+    // ── Table ─────────────────────────────────────────────────
+
+    function filterTable() {
+      const q = document.getElementById('search').value.toLowerCase();
+      const s = document.getElementById('stock-filter').value;
+      const filtered = allItems.filter(item => {
+        const matchCls = !activeClass || item['Class'] === activeClass;
+        const matchQ   = !q || item['Name'].toLowerCase().includes(q);
+        const qty = item['Quantity'] === '' ? 0 : Number(item['Quantity']);
+        const thr = Number(item['Reorder Threshold']) || 0;
+        const matchS = !s
+          || (s === 'out' && qty <= 0)
+          || (s === 'low' && thr > 0 && qty <= thr && qty > 0)
+          || (s === 'ok'  && (thr === 0 || qty > thr));
+        return matchCls && matchQ && matchS;
+      });
+
+      const title = activeClass || 'All Classes';
+      document.getElementById('table-title').textContent = title + ' — Supply Inventory';
+      const lowCount = filtered.filter(c => {
+        const q = Number(c['Quantity']) || 0, t = Number(c['Reorder Threshold']) || 0;
+        return t > 0 && q <= t;
+      }).length;
+      document.getElementById('table-sub').textContent = filtered.length + ' items · ' + lowCount + ' low stock';
+      renderTable(filtered);
     }
 
     function renderTable(data) {
       const tbody = document.getElementById('tbody');
-      document.getElementById('count').textContent = data.length + ' of ' + allItems.length + ' items';
+      document.getElementById('count').textContent = data.length + ' of ' + allItems.length + ' total items';
       if (data.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">🧪</div><div class="empty-text">No consumables found. Add one to get started.</div></div></td></tr>';
+        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+          <div class="empty-icon">🧪</div>
+          <div class="empty-text">No items yet for this class.<br>Use the Daily Log to record usage — items appear here automatically.<br>Or click <strong>+ Add / Set Stock</strong> to add one manually.</div>
+        </div></td></tr>`;
         return;
       }
-      tbody.innerHTML = data.map(item => {
-        const qty  = Number(item['Quantity']) || 0;
+      // Group by class if showing all
+      const rows = [];
+      let lastClass = null;
+      const sorted = [...data].sort((a, b) => {
+        const cc = (a['Class'] || '').localeCompare(b['Class'] || '');
+        return cc !== 0 ? cc : (a['Name'] || '').localeCompare(b['Name'] || '');
+      });
+      sorted.forEach(item => {
+        if (!activeClass && item['Class'] !== lastClass) {
+          lastClass = item['Class'];
+          rows.push(`<tr><td colspan="8" style="background:rgba(79,142,247,.06);padding:8px 16px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);">${esc(lastClass || 'No Class')}</td></tr>`);
+        }
+        const qty  = item['Quantity'] === '' ? 0 : Number(item['Quantity']);
         const thr  = Number(item['Reorder Threshold']) || 0;
-        const isOut = qty === 0;
+        const isOut = qty <= 0;
         const isLow = thr > 0 && qty <= thr;
         const rowCls = isOut ? 'row-critical' : isLow ? 'row-low' : '';
         const cost   = Number(item['Cost Per Unit']);
-        return `<tr class="${rowCls}">
+        rows.push(`<tr class="${rowCls}">
           <td style="font-weight:500;color:var(--text-1);">${esc(item['Name'])}</td>
+          <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(item['Class'] || '—')}</span></td>
           <td>${esc(item['Vendor'] || '—')}</td>
-          <td>${esc(item['Unit'] || '—')}</td>
-          <td>${esc(item['Units Per Pack'] || '—')}</td>
           <td style="font-weight:600;color:${isOut?'var(--rose)':isLow?'var(--amber)':'var(--text-1)'};">${qty}</td>
           <td style="color:var(--text-3);">${thr || '—'}</td>
           <td>${cost ? '$' + cost.toFixed(2) : '—'}</td>
           <td>${stockPill(qty, thr)}</td>
           <td class="no-print">
             <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:rgba(62,207,142,.3);" onclick="openRestock('${esc(item['ID'])}')">+ Restock</button>
               <button class="btn btn-ghost btn-sm" onclick="openEdit('${esc(item['ID'])}')">Edit</button>
               <button class="btn btn-danger btn-sm" onclick="deleteItem('${esc(item['ID'])}','${esc(item['Name'])}')">Delete</button>
             </div>
           </td>
-        </tr>`;
-      }).join('');
+        </tr>`);
+      });
+      tbody.innerHTML = rows.join('');
     }
 
-    function filterTable() {
-      const q   = document.getElementById('search').value.toLowerCase();
-      const v   = document.getElementById('vendor-filter').value;
-      const s   = document.getElementById('stock-filter').value;
-      const filtered = allItems.filter(item => {
-        const matchQ = !q || item['Name'].toLowerCase().includes(q) || (item['Vendor']||'').toLowerCase().includes(q);
-        const matchV = !v || item['Vendor'] === v;
-        const qty = Number(item['Quantity']) || 0;
-        const thr = Number(item['Reorder Threshold']) || 0;
-        const matchS = !s
-          || (s === 'out' && qty === 0)
-          || (s === 'low' && thr > 0 && qty <= thr && qty > 0)
-          || (s === 'ok'  && (thr === 0 || qty > thr));
-        return matchQ && matchV && matchS;
+    // ── Item name dropdown ────────────────────────────────────
+
+    function populateItemDropdown(selected) {
+      const sel = document.getElementById('f-name');
+      sel.innerHTML = '<option value="">Select item…</option>';
+      itemsList.slice().sort((a, b) => a['Name'].localeCompare(b['Name'])).forEach(i => {
+        const o = document.createElement('option');
+        o.value = i['Name']; o.textContent = i['Name'];
+        if (i['Name'] === selected) o.selected = true;
+        sel.appendChild(o);
       });
-      renderTable(filtered);
+      const add = document.createElement('option');
+      add.value = '__new__'; add.textContent = '＋ Add new item…';
+      sel.appendChild(add);
+      document.getElementById('new-item-row').style.display = 'none';
     }
+
+    function onItemNameChange() {
+      const isNew = document.getElementById('f-name').value === '__new__';
+      document.getElementById('new-item-row').style.display = isNew ? 'flex' : 'none';
+      if (isNew) document.getElementById('f-new-item').focus();
+    }
+
+    async function saveNewItem() {
+      const name = document.getElementById('f-new-item').value.trim();
+      if (!name) { showToast('Enter an item name', 'error'); return; }
+      if (itemsList.some(i => i['Name'].toLowerCase() === name.toLowerCase())) {
+        showToast('That item already exists', 'warning'); return;
+      }
+      try {
+        await apiPost({ action: 'addItem', row: { 'Name': name } });
+        itemsList = await apiGet('getItems');
+        showToast('Item added: ' + name);
+        document.getElementById('f-new-item').value = '';
+        populateItemDropdown(name);
+      } catch (e) { /* toast shown */ }
+    }
+
+    function cancelNewItem() {
+      document.getElementById('f-new-item').value = '';
+      document.getElementById('f-name').value = '';
+      document.getElementById('new-item-row').style.display = 'none';
+    }
+
+    // ── Add / Edit modal ──────────────────────────────────────
 
     function openAdd() {
       editingId = null;
-      document.getElementById('modal-title').textContent = 'Add Consumable';
-      document.getElementById('f-name').value = '';
-      document.getElementById('f-unit').value = '';
-      document.getElementById('f-pack').value = '';
-      document.getElementById('f-cost').value = '';
-      document.getElementById('f-qty').value  = '';
-      document.getElementById('f-threshold').value = '';
-      document.getElementById('f-notes').value = '';
+      document.getElementById('modal-title').textContent = 'Add / Set Stock';
+      populateItemDropdown('');
+      populateSelect(document.getElementById('f-class'), classes, 'Name', 'Name', activeClass, 'Select class…');
       populateVendorDropdown('');
+      document.getElementById('f-unit').value      = '';
+      document.getElementById('f-pack').value      = '';
+      document.getElementById('f-cost').value      = '';
+      document.getElementById('f-qty').value       = '';
+      document.getElementById('f-threshold').value = '';
+      document.getElementById('f-notes').value     = '';
       openModal();
     }
 
@@ -260,14 +399,15 @@
       if (!item) return;
       editingId = id;
       document.getElementById('modal-title').textContent = 'Edit Consumable';
-      document.getElementById('f-name').value      = item['Name'] || '';
+      populateItemDropdown(item['Name'] || '');
+      populateSelect(document.getElementById('f-class'), classes, 'Name', 'Name', item['Class'] || '', 'Select class…');
+      populateVendorDropdown(item['Vendor'] || '');
       document.getElementById('f-unit').value      = item['Unit'] || '';
       document.getElementById('f-pack').value      = item['Units Per Pack'] || '';
       document.getElementById('f-cost').value      = item['Cost Per Unit'] || '';
       document.getElementById('f-qty').value       = item['Quantity'] || '';
       document.getElementById('f-threshold').value = item['Reorder Threshold'] || '';
       document.getElementById('f-notes').value     = item['Notes'] || '';
-      populateVendorDropdown(item['Vendor'] || '');
       openModal();
     }
 
@@ -276,11 +416,14 @@
     }
 
     async function save() {
-      const name = document.getElementById('f-name').value.trim();
-      if (!name) { showToast('Item name is required', 'error'); return; }
+      const name = document.getElementById('f-name').value;
+      const cls  = document.getElementById('f-class').value;
+      if (!name || name === '__new__') { showToast('Please select an item name', 'error'); return; }
+      if (!cls) { showToast('Please select a class', 'error'); return; }
 
       const row = {
-        'Name'             : name,
+        'Name'             : name.trim(),
+        'Class'            : cls,
         'Vendor'           : document.getElementById('f-vendor').value,
         'Unit'             : document.getElementById('f-unit').value.trim(),
         'Units Per Pack'   : document.getElementById('f-pack').value,
@@ -307,6 +450,35 @@
       }
     }
 
+    // ── Restock modal ─────────────────────────────────────────
+
+    function openRestock(id) {
+      const item = allItems.find(c => String(c['ID']) === String(id));
+      if (!item) return;
+      restockingId = id;
+      document.getElementById('restock-name').textContent  = item['Name'];
+      document.getElementById('restock-class').textContent = item['Class'] + ' · Currently ' + (Number(item['Quantity']) || 0) + ' on hand';
+      document.getElementById('restock-qty').value = '';
+      openModal('restock-modal');
+    }
+
+    async function confirmRestock() {
+      const qty = Number(document.getElementById('restock-qty').value);
+      if (!qty || qty < 1) { showToast('Enter a quantity received', 'error'); return; }
+      const btn = document.getElementById('restock-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await apiPost({ action: 'restockConsumable', id: restockingId, qty });
+        showToast('Stock updated');
+        closeModal('restock-modal');
+        await load();
+      } finally {
+        btn.disabled = false; btn.textContent = 'Add to Stock';
+      }
+    }
+
+    // ── Delete / Export ───────────────────────────────────────
+
     async function deleteItem(id, name) {
       if (!confirm('Delete "' + name + '"? This cannot be undone.')) return;
       try {
@@ -317,7 +489,10 @@
     }
 
     function exportCSV() {
-      downloadCSV(allItems, 'consumables-' + today() + '.csv');
+      const data = activeClass
+        ? allItems.filter(i => i['Class'] === activeClass)
+        : allItems;
+      downloadCSV(data, 'consumables-' + (activeClass || 'all') + '-' + today() + '.csv');
     }
 
     load();

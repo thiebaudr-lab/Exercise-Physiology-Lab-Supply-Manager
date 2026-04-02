@@ -9,11 +9,27 @@ A lightweight, browser-based system for tracking lab supplies, equipment calibra
 | Page | Purpose |
 |---|---|
 | **Dashboard** | Live KPIs — low stock count, calibration alerts, recent activity |
-| **Consumables** | Add, edit, delete supply inventory with reorder thresholds |
+| **Consumables** | Per-class supply inventory with reorder thresholds and restock tracking |
 | **Hardware** | Track equipment, calibration schedules, and service dates |
 | **Daily Log** | Record supply usage by class; auto-decrements consumable inventory |
-| **Reports** | Usage pivot by item, reorder report, calibration status — all exportable to CSV |
-| **Settings** | Manage Staff, Vendor, and Class dropdown options |
+| **Reports** | Usage pivot, reorder report, calibration status, and semester/annual usage trends — all exportable to CSV |
+| **Settings** | Manage Staff, Vendor, Class, and Item Name dropdown options |
+
+---
+
+## Key Concepts
+
+### Per-Class Inventory
+
+Consumables are tracked **per class** — the same item (e.g., "Alcohol Wipes") has a separate stock row for each class that uses it (ESS 375L, ESS 497, ESS 386 H&D). This reflects the physical reality of supplies being allocated per course.
+
+### Auto-Create on First Log
+
+You do not need to manually add every consumable before the semester starts. When you log usage in the Daily Log for an item+class combination that has no stock row yet, the system **automatically creates the row** with a negative quantity (showing a deficit). You then use the **Restock** button to enter the actual quantity on hand, which adds to the current value.
+
+### Restock vs. Set
+
+The **Restock** action is additive — it adds the received quantity to the current stock. If you receive 200 alcohol wipes and the row currently shows −12 (used before stock was entered), restocking 200 results in 188.
 
 ---
 
@@ -36,7 +52,7 @@ Go to [sheets.google.com](https://sheets.google.com) and create a new blank spre
 2. Click **Run**
 3. When prompted, click **Review permissions** → **Allow**
 
-This creates six tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes) and pre-populates the Vendors and Classes dropdowns with the default values.
+This creates seven tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes, Items) and pre-populates Vendors, Classes, and the Items name lookup with default values.
 
 ### Step 4 — Deploy as a Web App
 
@@ -51,7 +67,7 @@ This creates six tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes
 
 ### Step 5 — Connect the Frontend
 
-Open `api.js` in this repository and replace the placeholder on line 10:
+Open `api.js` in this repository and replace the placeholder on line 8:
 
 ```js
 const API_URL = 'YOUR_APPS_SCRIPT_URL_HERE';
@@ -88,16 +104,29 @@ Set `index.html` as the entry point. The site is now live.
 
 ### Adding Supplies (Consumables)
 
-1. Go to **Consumables** → click **+ Add Consumable**
-2. Fill in Name, Vendor, Unit, Quantity, and Reorder Threshold
-3. The Reorder Threshold triggers an alert on the Dashboard when stock falls at or below that number
+You have two options:
+
+**Option A — Add manually:** Go to **Consumables** → click **+ Add Consumable**. Fill in Name, Class, Vendor, Unit, Quantity, and Reorder Threshold.
+
+**Option B — Log first, restock later:** Go to **Daily Log** and log usage as normal. The system creates the consumable row automatically with a negative quantity. Then go to **Consumables**, find the row, click **Restock**, and enter the quantity you actually have on hand.
+
+The Reorder Threshold triggers a low-stock alert on the Dashboard and the Reorder Report when stock falls at or below that number.
 
 ### Logging Daily Usage
 
 1. Go to **Daily Log** → fill in the form at the top
 2. Select **Consumable** or **Hardware** as the item type — the Item Name dropdown updates accordingly
-3. When you log a consumable, the quantity in the Consumables tab is automatically decremented
-4. To edit a past entry, click **Edit** on any row — the form switches to edit mode
+3. Select the **Class** the supplies were used in
+4. When you log a consumable, the quantity in the Consumables tab for that item+class is automatically decremented
+5. To edit a past entry, click **Edit** on any row — the form switches to edit mode
+
+> **Note:** Deleting a log entry does **not** restore inventory. Adjust stock manually via Restock if needed.
+
+### Restocking Supplies
+
+1. Go to **Consumables**
+2. Find the item and click **Restock**
+3. Enter the quantity received — this is **added** to the current quantity on hand
 
 ### Tracking Hardware
 
@@ -109,16 +138,24 @@ Set `index.html` as the entry point. The site is now live.
 ### Running Reports
 
 1. Go to **Reports**
-2. Use the filter bar to narrow by Class and/or date range
-3. Three reports update automatically:
+2. Use the filter bar at the top to narrow by Class and/or date range
+3. Four reports update automatically:
    - **Usage Summary** — total quantity used per item, number of sessions, top user and class
    - **Reorder Report** — all consumables at or below their reorder threshold
    - **Calibration Status** — all equipment requiring calibration, sorted by urgency
-4. Click **Export CSV** on any section to download that report, or **Export All CSV** to download all three
+   - **Semester & Annual Usage** — consumable totals broken down by Winter / Spring / Fall and year, per class. Use this to plan ordering quantities for upcoming semesters.
+4. Click **Export CSV** on any section to download that report, or **Export All CSV** to download all four
+
+> **Semester boundaries (BYUI calendar):**
+> - Winter: January 1 – April 10
+> - Spring: April 15 – July 31
+> - Fall: September 1 – December 31
+>
+> The date range filter is ignored on the Semester report — it always shows all historical data so you can compare year over year.
 
 ### Managing Dropdowns
 
-Staff names, vendor names, and class names that appear in dropdown menus are managed on the **Settings** page. Add or remove entries there — changes take effect immediately across all pages.
+Staff names, vendor names, class names, and consumable item names that appear in dropdown menus are managed on the **Settings** page. Add or remove entries there — changes take effect immediately across all pages.
 
 ---
 
@@ -142,8 +179,8 @@ If you make changes to `Code.gs`, you must create a **new deployment** for chang
 | `api.js` | Shared API wrapper, utility functions, CSV export. **Set `API_URL` here.** |
 | `style.css` | Shared stylesheet for all pages |
 | `index.html` | Dashboard |
-| `consumables.html` | Consumables CRUD |
-| `hardware.html` | Hardware CRUD |
+| `consumables.html` | Consumables CRUD with per-class tabs and restock |
+| `hardware.html` | Hardware CRUD with calibration and service tracking |
 | `daily-log.html` | Daily usage log |
-| `reports.html` | Reports and CSV export |
+| `reports.html` | Reports and CSV export, including semester/annual usage |
 | `settings.html` | Dropdown management + setup instructions |

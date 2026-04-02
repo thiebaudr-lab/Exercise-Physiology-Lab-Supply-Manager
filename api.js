@@ -5,7 +5,7 @@
 // Found under: Deploy > Manage deployments > Web App URL
 // ============================================================
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbxQSJHuEUVqhWJR_X7Ioh8QmzxdRER9fqzwQgcBXz4AW8Kvc-SrBapECRKGsnM1uIK4/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwA3SIOTwJDy7zWgrk36xFL-uPW4d2L1vUepfDnCg3w8TrJPr8-9pAA8WOGBXie1hf6/exec';
 const TIMEOUT_MS = 15000;
 
 // ── API Calls ─────────────────────────────────────────────────

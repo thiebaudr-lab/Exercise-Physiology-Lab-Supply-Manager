@@ -225,11 +225,11 @@ body {
 /* ── Modal ── */
 .modal-overlay {
   position: fixed; inset: 0; z-index: 500;
-  background: rgba(0,0,0,.65);
-  backdrop-filter: blur(4px);
+  background: rgba(0,0,0,.72);
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
   animation: fadeIn .15s ease;
+  /* backdrop-filter removed: creates stacking context that clips native <select> popups on Windows/Chrome */
 }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 

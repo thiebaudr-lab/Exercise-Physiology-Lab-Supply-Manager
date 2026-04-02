@@ -21,7 +21,8 @@ var TABS = {
   log         : 'Daily Log',
   vendors     : 'Vendors',
   staff       : 'Staff',
-  classes     : 'Classes'
+  classes     : 'Classes',
+  items       : 'Items'
 };
 
 // ── Routers ──────────────────────────────────────────────────
@@ -37,6 +38,7 @@ function doGet(e) {
       case 'getVendors'     : result = getRows(TABS.vendors);     break;
       case 'getStaff'       : result = getRows(TABS.staff);       break;
       case 'getClasses'     : result = getRows(TABS.classes);     break;
+      case 'getItems'       : result = getRows(TABS.items);       break;
       case 'getAll'         : result = getAll();                  break;
       default               : result = { error: 'Unknown action: ' + action };
     }
@@ -54,9 +56,11 @@ function doPost(e) {
   var result;
   try {
     switch (data.action) {
-      case 'addConsumable'    : result = addRow(TABS.consumables, data.row);               break;
-      case 'updateConsumable' : result = updateRow(TABS.consumables, data.id, data.row);   break;
-      case 'deleteConsumable' : result = deleteRow(TABS.consumables, data.id);             break;
+      case 'addConsumable'     : result = addRow(TABS.consumables, data.row);               break;
+      case 'updateConsumable'  : result = updateRow(TABS.consumables, data.id, data.row);  break;
+      case 'deleteConsumable'  : result = deleteRow(TABS.consumables, data.id);            break;
+      case 'restockConsumable' : result = restockConsumable(data.id, data.qty);            break;
+      case 'clearConsumables'  : result = clearConsumables();                              break;
       case 'addHardware'      : result = addRow(TABS.hardware, data.row);                  break;
       case 'updateHardware'   : result = updateRow(TABS.hardware, data.id, data.row);      break;
       case 'deleteHardware'   : result = deleteRow(TABS.hardware, data.id);                break;
@@ -69,6 +73,8 @@ function doPost(e) {
       case 'deleteStaff'      : result = deleteRow(TABS.staff, data.id);                   break;
       case 'addClass'         : result = addRow(TABS.classes, data.row);                   break;
       case 'deleteClass'      : result = deleteRow(TABS.classes, data.id);                 break;
+      case 'addItem'          : result = addRow(TABS.items, data.row);                     break;
+      case 'deleteItem'       : result = deleteRow(TABS.items, data.id);                   break;
       default                 : result = { error: 'Unknown action: ' + data.action };
     }
   } catch (err) {
@@ -184,27 +190,68 @@ function deleteRow(tabName, id) {
   return { error: 'Row not found: ' + id };
 }
 
-// Log entry with auto-decrement of consumable quantity
+// Log entry: auto-creates consumable row (Name+Class) if not found, then decrements
 function addLogEntry(rowData) {
   var result = addRow(TABS.log, rowData);
 
-  if (rowData['Item Type'] === 'Consumable' && rowData['Item Name'] && rowData['Quantity Used']) {
+  if (rowData['Item Type'] === 'Consumable' && rowData['Item Name'] && rowData['Class'] && rowData['Quantity Used']) {
     var sheet = getSheet(TABS.consumables);
     var data  = sheet.getDataRange().getValues();
     var hdrs  = data[0];
-    var nameI = hdrs.indexOf('Name');
-    var qtyI  = hdrs.indexOf('Quantity');
+    var nameI  = hdrs.indexOf('Name');
+    var classI = hdrs.indexOf('Class');
+    var qtyI   = hdrs.indexOf('Quantity');
+    var used   = Number(rowData['Quantity Used']) || 0;
+    var found  = false;
+
     for (var i = 1; i < data.length; i++) {
-      if (String(data[i][nameI]) === String(rowData['Item Name'])) {
-        var cur  = Number(data[i][qtyI]) || 0;
-        var used = Number(rowData['Quantity Used']) || 0;
-        sheet.getRange(i + 1, qtyI + 1).setValue(Math.max(0, cur - used));
+      if (String(data[i][nameI]) === String(rowData['Item Name']) &&
+          String(data[i][classI]) === String(rowData['Class'])) {
+        var cur = Number(data[i][qtyI]) || 0;
+        sheet.getRange(i + 1, qtyI + 1).setValue(cur - used);
+        found = true;
         break;
       }
+    }
+
+    // Auto-create the row and record the deficit if this Name+Class hasn't been seen before
+    if (!found) {
+      addRow(TABS.consumables, {
+        'Name'             : rowData['Item Name'],
+        'Class'            : rowData['Class'],
+        'Quantity'         : -used,
+        'Reorder Threshold': 0
+      });
     }
   }
 
   return result;
+}
+
+// Add qty to existing consumable stock (restock/receive new supplies)
+function restockConsumable(id, qty) {
+  var sheet = getSheet(TABS.consumables);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var idIdx = hdrs.indexOf('ID');
+  var qtyI  = hdrs.indexOf('Quantity');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx]) === String(id)) {
+      var cur = Number(data[i][qtyI]) || 0;
+      sheet.getRange(i + 1, qtyI + 1).setValue(cur + Number(qty));
+      return { success: true, newQty: cur + Number(qty) };
+    }
+  }
+  return { error: 'Row not found: ' + id };
+}
+
+// Wipe all consumable rows (keeps header row)
+function clearConsumables() {
+  var sheet = getSheet(TABS.consumables);
+  if (sheet.getLastRow() > 1) {
+    sheet.deleteRows(2, sheet.getLastRow() - 1);
+  }
+  return { success: true };
 }
 
 // ── One-time Setup ───────────────────────────────────────────
@@ -213,7 +260,7 @@ function initializeSheets() {
   var defs = [
     {
       name: TABS.consumables,
-      headers: ['ID', 'Name', 'Vendor', 'Unit', 'Units Per Pack', 'Cost Per Unit', 'Quantity', 'Reorder Threshold', 'Notes']
+      headers: ['ID', 'Name', 'Class', 'Vendor', 'Unit', 'Units Per Pack', 'Cost Per Unit', 'Quantity', 'Reorder Threshold', 'Notes']
     },
     {
       name: TABS.hardware,
@@ -225,7 +272,8 @@ function initializeSheets() {
     },
     { name: TABS.vendors, headers: ['ID', 'Name'] },
     { name: TABS.staff,   headers: ['ID', 'Name'] },
-    { name: TABS.classes, headers: ['ID', 'Name'] }
+    { name: TABS.classes, headers: ['ID', 'Name'] },
+    { name: TABS.items,   headers: ['ID', 'Name'] }
   ];
 
   defs.forEach(function (def) {
@@ -252,9 +300,29 @@ function initializeSheets() {
   // Seed vendors if empty
   var vs = ss.getSheetByName(TABS.vendors);
   if (vs.getLastRow() < 2) {
-    var vendors = ['Amazon', 'McKesson', 'lactate.com', 'Noraxon', 'Parvo', 'BYUI'];
+    var vendors = ['Amazon', 'McKesson', 'lactate.com', 'Noraxon', 'Parvo', 'BYUI', 'Cosmed'];
     vs.getRange(2, 1, vendors.length, 2).setValues(
       vendors.map(function (v) { return [genId(), v]; })
+    );
+  }
+
+  var SUPPLY_NAMES = [
+    'Alcohol Wipes','Sandpaper Pieces','Caprison','Jolly Rancher','Granola Bar',
+    'Athletic Gauze Roll','Athletic Tape Rolls','Bandaids','Battery AAA','Battery 9V',
+    'Battery CR2450','Battery CR 2025','Gauze','Kim Wipes','Lactate Strips',
+    'Lactate Control Solution','Electrodes','Razors','S Gloves Pairs','M Gloves Pairs',
+    'L Gloves Pairs','Lancets','Disinfectant Gallons','Resting ECG Electrodes',
+    'Germicidal Wipes','Electrode Stickers','Metabolic Tube',
+    'PermaPure Drying Tubes and Filters','PermaPure Drying Loop for Auto-Cal Circuit',
+    'Blue Water Trap Filters','Exercise Calibration Gas','Gas Regulator',
+    'Gas Washers','Command Strips','Posters'
+  ];
+
+  // Seed Items lookup tab if empty
+  var its = ss.getSheetByName(TABS.items);
+  if (its.getLastRow() < 2) {
+    its.getRange(2, 1, SUPPLY_NAMES.length, 2).setValues(
+      SUPPLY_NAMES.map(function(n) { return [genId(), n]; })
     );
   }
 

@@ -155,27 +155,27 @@
     'use strict';
     startClock();
 
-    let allLog       = [];
-    let consumables  = [];
-    let hardware     = [];
-    let classes      = [];
-    let staff        = [];
-    let editingId    = null;
+    let allLog    = [];
+    let itemsList = [];
+    let hardware  = [];
+    let classes   = [];
+    let staff     = [];
+    let editingId = null;
 
     async function load() {
       try {
-        const [logData, cons, hw, cls, stf] = await Promise.all([
+        const [logData, its, hw, cls, stf] = await Promise.all([
           apiGet('getDailyLog'),
-          apiGet('getConsumables'),
+          apiGet('getItems'),
           apiGet('getHardware'),
           apiGet('getClasses'),
           apiGet('getStaff')
         ]);
-        allLog      = logData || [];
-        consumables = cons    || [];
-        hardware    = hw      || [];
-        classes     = cls     || [];
-        staff       = stf     || [];
+        allLog    = logData || [];
+        itemsList = its     || [];
+        hardware  = hw      || [];
+        classes   = cls     || [];
+        staff     = stf     || [];
         populateDropdowns();
         populateClassFilter();
         renderTable(allLog);
@@ -195,8 +195,8 @@
     }
 
     function onTypeChange() {
-      const type = document.getElementById('f-type').value;
-      const items = type === 'Consumable' ? consumables : hardware;
+      const type  = document.getElementById('f-type').value;
+      const items = type === 'Consumable' ? itemsList : hardware;
       populateSelect(document.getElementById('f-item'), items, 'Name', 'Name', '', 'Select item…');
     }
 
@@ -285,7 +285,7 @@
           cancelEdit();
         } else {
           await apiPost({ action: 'addLogEntry', row });
-          showToast('Entry logged' + (type === 'Consumable' ? ' · Inventory decremented' : ''));
+          showToast('Entry logged' + (type === 'Consumable' ? ' · Inventory updated' : ''));
           // Reset form
           document.getElementById('f-qty').value   = '';
           document.getElementById('f-notes').value = '';

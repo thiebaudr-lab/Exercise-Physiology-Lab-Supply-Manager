@@ -94,6 +94,21 @@
         </div>
       </div>
 
+      <!-- Items -->
+      <div class="glass" style="padding:24px;">
+        <div class="settings-section">
+          <div class="settings-section-title">🧪 Consumable Items</div>
+          <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These appear in the Item Name dropdown when adding a consumable.</div>
+          <ul class="settings-list" id="item-list">
+            <li class="settings-item"><span class="settings-name"><span class="spinner"></span></span></li>
+          </ul>
+          <div class="settings-add">
+            <input id="item-input" class="linput" type="text" placeholder="e.g. Lactate Strips" style="flex:1;" onkeydown="if(event.key==='Enter')addSetting('item')" />
+            <button class="btn btn-primary btn-sm" onclick="addSetting('item')">Add</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- API Configuration -->
@@ -167,26 +182,30 @@
     let staffList   = [];
     let vendorList  = [];
     let classList   = [];
+    let itemList    = [];
 
     async function load() {
       try {
-        const [stf, ven, cls] = await Promise.all([
+        const [stf, ven, cls, its] = await Promise.all([
           apiGet('getStaff'),
           apiGet('getVendors'),
-          apiGet('getClasses')
+          apiGet('getClasses'),
+          apiGet('getItems')
         ]);
         staffList  = stf || [];
         vendorList = ven || [];
         classList  = cls || [];
+        itemList   = its || [];
         renderAll();
         testConnection(true);
       } catch (e) { /* toast shown */ }
     }
 
     const SETTINGS_CFG = {
-      staff:  { list: () => staffList,  inputId: 'staff-input',  addAction: 'addStaff',  deleteAction: 'deleteStaff',  label: 'Staff member', note: 'Existing log entries are not affected.' },
-      vendor: { list: () => vendorList, inputId: 'vendor-input', addAction: 'addVendor', deleteAction: 'deleteVendor', label: 'Vendor',        note: null },
-      class:  { list: () => classList,  inputId: 'class-input',  addAction: 'addClass',  deleteAction: 'deleteClass',  label: 'Class',         note: 'Existing log entries are not affected.' }
+      staff:  { list: () => staffList,  inputId: 'staff-input',  addAction: 'addStaff',  deleteAction: 'deleteStaff',  label: 'Staff member',    note: 'Existing log entries are not affected.' },
+      vendor: { list: () => vendorList, inputId: 'vendor-input', addAction: 'addVendor', deleteAction: 'deleteVendor', label: 'Vendor',           note: null },
+      class:  { list: () => classList,  inputId: 'class-input',  addAction: 'addClass',  deleteAction: 'deleteClass',  label: 'Class',            note: 'Existing log entries are not affected.' },
+      item:   { list: () => itemList,   inputId: 'item-input',   addAction: 'addItem',   deleteAction: 'deleteItem',   label: 'Consumable item',  note: null }
     };
 
     function renderAll() {

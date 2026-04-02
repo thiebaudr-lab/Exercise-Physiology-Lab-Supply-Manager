@@ -175,6 +175,44 @@
       </div>
     </div>
 
+    <!-- Report 4: Semester & Annual Usage -->
+    <div class="report-section anim d6">
+      <div class="report-section-title">
+        📅 Semester &amp; Annual Usage
+        <span class="pill pill-violet" id="sem-badge" style="font-size:.62rem;">0 rows</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Consumable Usage by Semester &amp; Year</div>
+            <div class="table-sub" id="sem-sub">All years · all classes</div>
+          </div>
+          <button class="btn btn-ghost btn-sm no-print" onclick="exportSemester()">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Class</th>
+                <th>Year</th>
+                <th>Winter (Jan–Apr)</th>
+                <th>Spring (Apr–Jul)</th>
+                <th>Fall (Sep–Dec)</th>
+                <th>Annual Total</th>
+              </tr>
+            </thead>
+            <tbody id="sem-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span style="font-size:.72rem;color:var(--text-3);">Date range filter is ignored — shows all historical semesters</span>
+        </div>
+      </div>
+    </div>
+
     <div class="page-footer no-print">
       <span class="footer-text">ExPhys LIMS · v2.0.0</span>
       <span class="footer-text">Reports — Generated <span id="gen-time"></span></span>
@@ -193,6 +231,7 @@
     let allCons     = [];
     let allHardware = [];
     let classes     = [];
+    let semesterData = [];
 
     async function load() {
       try {
@@ -236,6 +275,7 @@
       renderUsageReport();
       renderReorderReport();
       renderCalReport();
+      renderSemesterReport();
     }
 
     // ── Usage Report ──
@@ -342,6 +382,67 @@
       }).join('');
     }
 
+    // ── Semester & Annual Report ──
+    function getSemester(dateStr) {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d)) return null;
+      const m   = d.getMonth() + 1; // 1–12
+      const day = d.getDate();
+      const yr  = d.getFullYear();
+      if (m <= 3 || (m === 4 && day <= 10))   return { sem: 'Winter', year: yr };
+      if ((m === 4 && day >= 15) || (m >= 5 && m <= 7)) return { sem: 'Spring', year: yr };
+      if (m >= 9)                               return { sem: 'Fall',   year: yr };
+      return null; // Aug or Apr 11–14 gap between semesters
+    }
+
+    function renderSemesterReport() {
+      const cls = document.getElementById('f-class').value;
+      // Class filter applies; date range intentionally ignored so all history is visible
+      const log = allLog.filter(e =>
+        e['Item Type'] === 'Consumable' && (!cls || e['Class'] === cls)
+      );
+
+      document.getElementById('sem-sub').textContent =
+        (cls || 'All classes') + ' · all years';
+
+      const pivot = {};
+      log.forEach(e => {
+        const s = getSemester(e['Date']);
+        if (!s) return;
+        const key = (e['Item Name'] || '') + '|' + (e['Class'] || '') + '|' + s.year;
+        if (!pivot[key]) {
+          pivot[key] = { item: e['Item Name'] || '', cls: e['Class'] || '', year: s.year, Winter: 0, Spring: 0, Fall: 0 };
+        }
+        pivot[key][s.sem] += Number(e['Quantity Used']) || 0;
+      });
+
+      semesterData = Object.values(pivot).sort((a, b) => {
+        if (a.item !== b.item) return a.item.localeCompare(b.item);
+        if (a.cls  !== b.cls)  return a.cls.localeCompare(b.cls);
+        return b.year - a.year; // newest year first within same item+class
+      });
+
+      document.getElementById('sem-badge').textContent = semesterData.length + ' rows';
+      const tbody = document.getElementById('sem-tbody');
+      if (semesterData.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">No consumable usage data yet. Log entries to see semester trends.</div></div></td></tr>';
+        return;
+      }
+      tbody.innerHTML = semesterData.map(r => {
+        const annual = r.Winter + r.Spring + r.Fall;
+        return `<tr>
+          <td style="font-weight:500;color:var(--text-1);">${esc(r.item)}</td>
+          <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(r.cls)}</span></td>
+          <td style="color:var(--text-3);white-space:nowrap;">${r.year}</td>
+          <td>${r.Winter || '<span style="color:var(--text-3);">—</span>'}</td>
+          <td>${r.Spring || '<span style="color:var(--text-3);">—</span>'}</td>
+          <td>${r.Fall   || '<span style="color:var(--text-3);">—</span>'}</td>
+          <td style="font-weight:700;color:var(--text-1);">${annual}</td>
+        </tr>`;
+      }).join('');
+    }
+
     function clearFilters() {
       document.getElementById('f-class').value = '';
       document.getElementById('f-from').value  = '';
@@ -368,8 +469,15 @@
         'Last Service': h['Last Service'], 'Next Service': h['Next Service']
       })), 'calibration-report-' + today() + '.csv');
     }
+    function exportSemester() {
+      downloadCSV(semesterData.map(r => ({
+        'Item': r.item, 'Class': r.cls, 'Year': r.year,
+        'Winter': r.Winter, 'Spring': r.Spring, 'Fall': r.Fall,
+        'Annual Total': r.Winter + r.Spring + r.Fall
+      })), 'semester-usage-' + today() + '.csv');
+    }
     function exportAll() {
-      exportUsage(); exportReorder(); exportCal();
+      exportUsage(); exportReorder(); exportCal(); exportSemester();
     }
 
     load();
