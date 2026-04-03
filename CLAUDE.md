@@ -125,12 +125,19 @@ Key CSS classes: `.kpi` / `.kpi-{color}`, `.glass`, `.pill` / `.pill-{color}`, `
 
 Note: `backdrop-filter` is intentionally absent from `.modal-overlay` — it creates a stacking context on Windows/Chrome that clips native `<select>` dropdown popups.
 
-## Deployment
+## Build & Deployment
 
+Run `bash build.sh` from the repo root to populate `deploy/` with the 9 files needed for eQuella (HTML, CSS, JS, and `lab-banner.jpg`). The `deploy/` folder is gitignored.
+
+Full deployment steps:
 1. Create a Google Sheet → Extensions → Apps Script → paste `Code.gs`
 2. Run `initializeSheets()` once from the editor
 3. Deploy as Web App (Execute as: Me, Access: Anyone)
 4. Paste the Web App URL into `api.js` as `API_URL`
-5. Upload all HTML/CSS/JS files to Open eQuella microsite
+5. Run `bash build.sh`, then upload `deploy/` contents to Open eQuella microsite
 
 See `README.md` for full step-by-step instructions.
+
+## Custom Commands
+
+`.claude/commands/finalize.md` — project-level `/finalize` command that updates README, updates CLAUDE.md, commits, runs `bash build.sh`, and pushes to GitHub.

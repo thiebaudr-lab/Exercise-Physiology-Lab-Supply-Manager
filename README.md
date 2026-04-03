@@ -171,6 +171,18 @@ If you make changes to `Code.gs`, you must create a **new deployment** for chang
 
 ---
 
+## Building the Deploy Package
+
+Run the build script from the repo root to generate the `deploy/` folder with only the files needed for eQuella:
+
+```bash
+bash build.sh
+```
+
+Upload the contents of `deploy/` to your Open eQuella microsite and set `index.html` as the entry point. The `deploy/` folder is regenerated fresh each run and is not tracked by Git.
+
+---
+
 ## File Reference
 
 | File | Description |
@@ -178,9 +190,11 @@ If you make changes to `Code.gs`, you must create a **new deployment** for chang
 | `Code.gs` | Google Apps Script backend — paste into Apps Script editor |
 | `api.js` | Shared API wrapper, utility functions, CSV export. **Set `API_URL` here.** |
 | `style.css` | Shared stylesheet for all pages |
-| `index.html` | Dashboard |
+| `index.html` | Dashboard with lab banner and live KPIs |
 | `consumables.html` | Consumables CRUD with per-class tabs and restock |
 | `hardware.html` | Hardware CRUD with calibration and service tracking |
 | `daily-log.html` | Daily usage log |
 | `reports.html` | Reports and CSV export, including semester/annual usage |
 | `settings.html` | Dropdown management + setup instructions |
+| `lab-banner.jpg` | Lab photo displayed on the dashboard |
+| `build.sh` | Build script — copies eQuella files into `deploy/` |

@@ -4,6 +4,7 @@ node_modules/
 *.log
 dist/
 build/
+deploy/
 __pycache__/
 .DS_Store
 Thumbs.db
