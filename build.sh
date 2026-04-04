@@ -11,6 +11,7 @@ FILES=(
   hardware.html
   daily-log.html
   reports.html
+  budget.html
   settings.html
   style.css
   api.js

@@ -8,11 +8,12 @@ A lightweight, browser-based system for tracking lab supplies, equipment calibra
 
 | Page | Purpose |
 |---|---|
-| **Dashboard** | Live KPIs — low stock count, calibration alerts, recent activity |
+| **Dashboard** | Live KPIs — budget overview, low stock count, calibration alerts |
 | **Consumables** | Per-class supply inventory with reorder thresholds and restock tracking |
 | **Hardware** | Track equipment, calibration schedules, and service dates |
 | **Daily Log** | Record supply usage by class; auto-decrements consumable inventory |
 | **Reports** | Usage pivot, reorder report, calibration status, and semester/annual usage trends — all exportable to CSV |
+| **Budget** | Per-class course fee budget tracking — semester enrollment entry, spending history, remaining balance |
 | **Settings** | Manage Staff, Vendor, Class, and Item Name dropdown options |
 
 ---
@@ -30,6 +31,8 @@ You do not need to manually add every consumable before the semester starts. Whe
 ### Restock vs. Set
 
 The **Restock** action is additive — it adds the received quantity to the current stock. If you receive 200 alcohol wipes and the row currently shows −12 (used before stock was entered), restocking 200 results in 188.
+
+When you restock, you can also enter the **Invoice Amount** and **Shipping & Tax Costs**. These are recorded in the Restock Log and rolled into the total cost spent for that class — which feeds the Budget page spending calculations.
 
 ---
 
@@ -52,7 +55,7 @@ Go to [sheets.google.com](https://sheets.google.com) and create a new blank spre
 2. Click **Run**
 3. When prompted, click **Review permissions** → **Allow**
 
-This creates seven tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes, Items) and pre-populates Vendors, Classes, and the Items name lookup with default values.
+This creates nine tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes, Items, Budget, Restock Log) and pre-populates Vendors, Classes, and the Items name lookup with default values.
 
 ### Step 4 — Deploy as a Web App
 
@@ -89,9 +92,11 @@ consumables.html
 hardware.html
 daily-log.html
 reports.html
+budget.html
 settings.html
 style.css
 api.js
+lab-banner.jpg
 ```
 
 Set `index.html` as the entry point. The site is now live.
@@ -126,7 +131,8 @@ The Reorder Threshold triggers a low-stock alert on the Dashboard and the Reorde
 
 1. Go to **Consumables**
 2. Find the item and click **Restock**
-3. Enter the quantity received — this is **added** to the current quantity on hand
+3. Enter the **Quantity Received** — this is **added** to the current quantity on hand
+4. Optionally enter the **Invoice Amount** and **Shipping & Tax Costs** — these are logged to the Restock Log and included in Budget spending totals for the item's class
 
 ### Tracking Hardware
 
@@ -152,6 +158,27 @@ The Reorder Threshold triggers a low-stock alert on the Dashboard and the Reorde
 > - Fall: September 1 – December 31
 >
 > The date range filter is ignored on the Semester report — it always shows all historical data so you can compare year over year.
+
+### Managing the Budget
+
+The Budget page tracks course fee spending per class and semester.
+
+**Setting semester budgets:**
+1. Go to **Budget**
+2. Use the year selector to choose the fiscal year (calendar year Jan–Dec)
+3. Click **+ Add Budget Entry**
+4. Select the class, semester, and enter **Total Enrollment** (sum of all sections for that semester)
+5. Enter the **Course Fee Per Student** — the Semester Total auto-calculates
+6. Save the entry — the KPI cards at the top update immediately
+
+> Classes without a course fee (e.g., ESS 386 H&D) show total spending only — no allocated budget or remaining balance.
+
+**Viewing spending:**
+The Budget page shows a spending history table of all restock entries with their invoice amounts and shipping/tax costs. Use **Export Spending CSV** to download the full history.
+
+The Dashboard Budget Overview shows a compact summary of remaining balance per class for the current fiscal year.
+
+---
 
 ### Managing Dropdowns
 
@@ -195,6 +222,7 @@ Upload the contents of `deploy/` to your Open eQuella microsite and set `index.h
 | `hardware.html` | Hardware CRUD with calibration and service tracking |
 | `daily-log.html` | Daily usage log |
 | `reports.html` | Reports and CSV export, including semester/annual usage |
+| `budget.html` | Per-class budget tracking — semester enrollment, spending history, remaining balance |
 | `settings.html` | Dropdown management + setup instructions |
 | `lab-banner.jpg` | Lab photo displayed on the dashboard |
 | `build.sh` | Build script — copies eQuella files into `deploy/` |

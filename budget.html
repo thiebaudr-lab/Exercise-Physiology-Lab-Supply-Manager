@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ExPhys LIMS — Budget</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header class="header no-print">
+    <div class="header-inner">
+      <div class="header-left">
+        <a href="index.html" class="logo-wrap">
+          <div class="logo-icon">⚗️</div>
+          <div>
+            <div class="logo-name">ExPhys LIMS</div>
+            <div class="logo-sub">Lab Information Management</div>
+          </div>
+        </a>
+        <div class="vdivider"></div>
+        <nav class="header-nav">
+          <a href="index.html"       class="nav-link">Dashboard</a>
+          <a href="consumables.html" class="nav-link">Consumables</a>
+          <a href="hardware.html"    class="nav-link">Hardware</a>
+          <a href="daily-log.html"   class="nav-link">Daily Log</a>
+          <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="budget.html"      class="nav-link active">Budget</a>
+          <a href="settings.html"    class="nav-link">Settings</a>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="pulse-dot"></div>
+        <span class="status-text">Live</span>
+        <div class="vdivider"></div>
+        <span class="clock-text" id="clock"></span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="page-header anim d1">
+      <div class="eyebrow">Financial Tracking</div>
+      <h1 class="page-title">Budget</h1>
+      <p class="page-subtitle">Set semester enrollment to allocate course fee budgets. Restock costs are tracked automatically per class.</p>
+    </div>
+
+    <!-- Year selector + add button -->
+    <div class="glass anim d2 no-print" style="padding:16px 24px;margin-bottom:24px;display:flex;align-items:flex-end;gap:16px;flex-wrap:wrap;">
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <label class="form-label">Fiscal Year</label>
+        <select id="year-select" class="linput" onchange="renderAll()" style="cursor:pointer;min-width:120px;"></select>
+      </div>
+      <div style="margin-left:auto;">
+        <button class="btn btn-primary" onclick="openAddEntry()">+ Add Semester Budget</button>
+      </div>
+    </div>
+
+    <!-- Per-class KPI summary -->
+    <div class="kpi-grid anim d3" id="budget-kpis"></div>
+
+    <!-- Budget entries table -->
+    <div class="report-section anim d4">
+      <div class="report-section-title">
+        📋 Semester Budget Entries
+        <span class="pill pill-blue" id="entries-badge" style="font-size:.62rem;">0 entries</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Enrollment &amp; Course Fees</div>
+            <div class="table-sub" id="entries-sub">By semester for selected year</div>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Semester</th>
+                <th>Year</th>
+                <th>Total Enrollment</th>
+                <th>Fee / Student</th>
+                <th>Semester Total</th>
+                <th class="no-print">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="entries-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Restock spending history -->
+    <div class="report-section anim d5">
+      <div class="report-section-title">
+        🧾 Restock Spending History
+        <span class="pill pill-rose" id="spend-badge" style="font-size:.62rem;">0 entries</span>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div>
+            <div class="table-title">Supply Purchases</div>
+            <div class="table-sub" id="spend-sub">Restock costs for selected year</div>
+          </div>
+          <button class="btn btn-ghost btn-sm no-print" onclick="exportSpending()">Export CSV</button>
+        </div>
+        <div class="table-scroll">
+          <table class="ltable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Item</th>
+                <th>Class</th>
+                <th>Qty Received</th>
+                <th>Invoice Amount</th>
+                <th>Shipping &amp; Tax</th>
+                <th>Total Cost</th>
+              </tr>
+            </thead>
+            <tbody id="spend-tbody">
+              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-footer">
+          <span class="table-count" id="spend-count"></span>
+          <span id="spend-total" style="font-size:.8rem;font-weight:600;color:var(--text-1);"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-footer no-print">
+      <span class="footer-text">ExPhys LIMS · v2.0.0</span>
+      <span class="footer-text">Budget</span>
+    </div>
+  </main>
+
+  <!-- Add / Edit Budget Entry Modal -->
+  <div id="entry-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('entry-modal')">
+    <div class="modal-box" style="max-width:500px;">
+      <div class="modal-header">
+        <span class="modal-title" id="entry-modal-title">Add Semester Budget</span>
+        <button class="modal-close" onclick="closeModal('entry-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Class *</label>
+            <select id="e-class" class="form-input"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Semester *</label>
+            <select id="e-semester" class="form-input">
+              <option value="">Select semester…</option>
+              <option value="Winter">Winter (Jan – Apr 10)</option>
+              <option value="Spring">Spring (Apr 15 – Jul 31)</option>
+              <option value="Fall">Fall (Sep – Dec)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Year *</label>
+            <input id="e-year" class="form-input" type="number" min="2020" max="2099" />
+          </div>
+          <div class="form-group"><!-- spacer --></div>
+          <div class="form-group">
+            <label class="form-label">Total Enrollment</label>
+            <input id="e-enrollment" class="form-input" type="number" min="0" placeholder="All sections combined" oninput="updateSemesterTotal()" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Course Fee / Student ($)</label>
+            <input id="e-fee" class="form-input" type="number" min="0" step="0.01" placeholder="0.00" oninput="updateSemesterTotal()" />
+          </div>
+          <div class="form-group span2" style="background:rgba(79,142,247,.08);border:1px solid rgba(79,142,247,.2);border-radius:10px;padding:12px 16px;">
+            <div style="font-size:.72rem;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Semester Budget Total</div>
+            <div id="e-total-value" style="font-size:1.4rem;font-weight:700;color:var(--blue);">$0.00</div>
+            <div id="e-total-formula" style="font-size:.72rem;color:var(--text-3);margin-top:2px;">Enter enrollment and fee to calculate</div>
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Notes</label>
+            <textarea id="e-notes" class="form-input" placeholder="Optional notes…" rows="2"></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('entry-modal')">Cancel</button>
+        <button id="entry-save-btn" class="btn btn-primary" onclick="saveEntry()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <script src="api.js"></script>
+  <script>
+    'use strict';
+    startClock();
+
+    let allBudget      = [];
+    let allRestock     = [];
+    let classes        = [];
+    let editingEntryId = null;
+    let filteredSpend  = [];
+
+    async function load() {
+      try {
+        const [budget, restock, cls] = await Promise.all([
+          apiGet('getBudget'),
+          apiGet('getRestockLog'),
+          apiGet('getClasses')
+        ]);
+        allBudget  = budget  || [];
+        allRestock = restock || [];
+        classes    = cls     || [];
+        populateYearSelect();
+        renderAll();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function populateYearSelect() {
+      const sel  = document.getElementById('year-select');
+      const curY = new Date().getFullYear();
+      const years = new Set([curY]);
+      allBudget.forEach(b  => { if (b['Year'])  years.add(Number(b['Year'])); });
+      allRestock.forEach(r => { if (r['Date'])  years.add(getYear(r['Date'])); });
+      const sorted = [...years].sort((a, b) => b - a);
+      const prev   = Number(sel.value) || curY;
+      sel.innerHTML = sorted.map(y => `<option value="${y}"${y === prev ? ' selected' : ''}>${y}</option>`).join('');
+    }
+
+    function selectedYear() {
+      return Number(document.getElementById('year-select').value);
+    }
+
+    function classAllocated(cls, year) {
+      return allBudget
+        .filter(b => b['Class'] === cls && Number(b['Year']) === year)
+        .reduce((sum, b) => sum + (Number(b['Semester Total']) || 0), 0);
+    }
+
+    function classSpent(cls, year) {
+      return allRestock
+        .filter(r => r['Class'] === cls && r['Date'] && getYear(r['Date']) === year)
+        .reduce((sum, r) => sum + (Number(r['Total Cost']) || 0), 0);
+    }
+
+    function renderAll() {
+      renderKPIs();
+      renderEntriesTable();
+      renderSpendingTable();
+    }
+
+    // ── KPI Cards ─────────────────────────────────────────────
+
+    function renderKPIs() {
+      const year = selectedYear();
+      const grid = document.getElementById('budget-kpis');
+      if (classes.length === 0) { grid.innerHTML = ''; return; }
+
+      grid.innerHTML = classes.map(c => {
+        const cls       = c['Name'];
+        const allocated = classAllocated(cls, year);
+        const spent     = classSpent(cls, year);
+        const remaining = allocated - spent;
+        const hasFee    = allBudget.some(b => b['Class'] === cls && Number(b['Year']) === year && Number(b['Course Fee Per Student']) > 0);
+
+        if (!hasFee) {
+          return `<div class="kpi kpi-blue">
+            <div class="kpi-orb"></div>
+            <div class="kpi-icon">🏛️</div>
+            <div class="kpi-body">
+              <div class="kpi-label">${esc(cls)}</div>
+              <div class="kpi-num" style="font-size:1.3rem;">${fmt$(spent)}</div>
+              <div class="kpi-meta"><span class="kpi-sub">Spent · Department budget</span></div>
+            </div>
+          </div>`;
+        }
+
+        const pct      = allocated > 0 ? Math.max(0, Math.min(100, (spent / allocated) * 100)) : 0;
+        const kpiColor = remaining < 0 ? 'kpi-rose' : pct >= 70 ? 'kpi-amber' : 'kpi-green';
+        const barColor = remaining < 0 ? 'var(--rose)' : pct >= 70 ? 'var(--amber)' : 'var(--green)';
+
+        return `<div class="kpi ${kpiColor}">
+          <div class="kpi-orb"></div>
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-body">
+            <div class="kpi-label">${esc(cls)}</div>
+            <div class="kpi-num" style="font-size:1.3rem;">${fmt$(remaining)}</div>
+            <div style="background:rgba(255,255,255,.1);border-radius:100px;height:6px;margin:6px 0 4px;overflow:hidden;">
+              <div style="height:100%;border-radius:100px;width:${pct}%;background:${barColor};transition:width .4s;"></div>
+            </div>
+            <div class="kpi-meta"><span class="kpi-sub">${fmt$(spent)} spent · ${fmt$(allocated)} allocated</span></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    // ── Budget Entries Table ──────────────────────────────────
+
+    function renderEntriesTable() {
+      const year    = selectedYear();
+      const semOrd  = { Winter: 0, Spring: 1, Fall: 2 };
+      const entries = allBudget
+        .filter(b => Number(b['Year']) === year)
+        .sort((a, b) => {
+          const cc = (a['Class'] || '').localeCompare(b['Class'] || '');
+          return cc !== 0 ? cc : (semOrd[a['Semester']] ?? 9) - (semOrd[b['Semester']] ?? 9);
+        });
+
+      document.getElementById('entries-badge').textContent = entries.length + ' entries';
+      document.getElementById('entries-sub').textContent   = 'Fiscal year ' + year;
+
+      const tbody = document.getElementById('entries-tbody');
+      if (entries.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">No budget entries for ${year}.<br>Click <strong>+ Add Semester Budget</strong> to set enrollment for a semester.</div>
+        </div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = entries.map(b => {
+        const enroll = Number(b['Total Enrollment']) || 0;
+        const fee    = Number(b['Course Fee Per Student']) || 0;
+        const total  = Number(b['Semester Total']) || 0;
+        return `<tr>
+          <td style="font-weight:500;color:var(--text-1);">${esc(b['Class'])}</td>
+          <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(b['Semester'])}</span></td>
+          <td style="color:var(--text-3);">${b['Year']}</td>
+          <td>${enroll || '—'}</td>
+          <td>${fee ? fmt$(fee) : '<span style="color:var(--text-3);">—</span>'}</td>
+          <td style="font-weight:600;color:var(--text-1);">${fmt$(total)}</td>
+          <td class="no-print">
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" onclick="openEditEntry('${esc(b['ID'])}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteEntry('${esc(b['ID'])}','${esc(b['Class'])}','${esc(b['Semester'])}')">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Spending History Table ────────────────────────────────
+
+    function renderSpendingTable() {
+      const year = selectedYear();
+      filteredSpend = allRestock
+        .filter(r => r['Date'] && getYear(r['Date']) === year)
+        .sort((a, b) => String(b['Date']).localeCompare(String(a['Date'])));
+
+      document.getElementById('spend-badge').textContent = filteredSpend.length + ' entries';
+      document.getElementById('spend-sub').textContent   = 'Fiscal year ' + year;
+      document.getElementById('spend-count').textContent = filteredSpend.length + ' restock' + (filteredSpend.length !== 1 ? 's' : '');
+
+      const grandTotal = filteredSpend.reduce((s, r) => s + (Number(r['Total Cost']) || 0), 0);
+      document.getElementById('spend-total').textContent = 'Total: ' + fmt$(grandTotal);
+
+      const tbody = document.getElementById('spend-tbody');
+      if (filteredSpend.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state">
+          <div class="empty-icon">🧾</div>
+          <div class="empty-text">No restock purchases recorded for ${year}.<br>Invoice amounts are captured when you restock a consumable.</div>
+        </div></td></tr>`;
+        return;
+      }
+      tbody.innerHTML = filteredSpend.map(r => {
+        const inv  = Number(r['Invoice Amount']) || 0;
+        const ship = Number(r['Shipping Tax'])   || 0;
+        const tot  = Number(r['Total Cost'])     || 0;
+        return `<tr>
+          <td style="color:var(--text-2);white-space:nowrap;">${fmtDate(r['Date'])}</td>
+          <td style="font-weight:500;color:var(--text-1);">${esc(r['Item Name'])}</td>
+          <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(r['Class'])}</span></td>
+          <td>${esc(String(r['Quantity']))}</td>
+          <td>${fmt$(inv)}</td>
+          <td>${ship ? fmt$(ship) : '<span style="color:var(--text-3);">—</span>'}</td>
+          <td style="font-weight:600;color:var(--text-1);">${fmt$(tot)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // ── Add / Edit Entry Modal ────────────────────────────────
+
+    function openAddEntry() {
+      editingEntryId = null;
+      document.getElementById('entry-modal-title').textContent = 'Add Semester Budget';
+      populateSelect(document.getElementById('e-class'), classes, 'Name', 'Name', '', 'Select class…');
+      document.getElementById('e-semester').value   = '';
+      document.getElementById('e-year').value       = selectedYear();
+      document.getElementById('e-enrollment').value = '';
+      document.getElementById('e-fee').value        = '';
+      document.getElementById('e-notes').value      = '';
+      updateSemesterTotal();
+      openModal('entry-modal');
+    }
+
+    function openEditEntry(id) {
+      const b = allBudget.find(x => String(x['ID']) === String(id));
+      if (!b) return;
+      editingEntryId = id;
+      document.getElementById('entry-modal-title').textContent = 'Edit Semester Budget';
+      populateSelect(document.getElementById('e-class'), classes, 'Name', 'Name', b['Class'] || '', 'Select class…');
+      document.getElementById('e-semester').value   = b['Semester'] || '';
+      document.getElementById('e-year').value       = b['Year'] || selectedYear();
+      document.getElementById('e-enrollment').value = b['Total Enrollment'] || '';
+      document.getElementById('e-fee').value        = b['Course Fee Per Student'] || '';
+      document.getElementById('e-notes').value      = b['Notes'] || '';
+      updateSemesterTotal();
+      openModal('entry-modal');
+    }
+
+    function updateSemesterTotal() {
+      const enroll = Number(document.getElementById('e-enrollment').value) || 0;
+      const fee    = Number(document.getElementById('e-fee').value) || 0;
+      const total  = enroll * fee;
+      document.getElementById('e-total-value').textContent   = fmt$(total);
+      document.getElementById('e-total-formula').textContent = enroll && fee
+        ? enroll + ' students × ' + fmt$(fee) + ' = ' + fmt$(total)
+        : 'Enter enrollment and fee to calculate';
+    }
+
+    async function saveEntry() {
+      const cls      = document.getElementById('e-class').value;
+      const semester = document.getElementById('e-semester').value;
+      const year     = document.getElementById('e-year').value;
+      if (!cls)      { showToast('Select a class', 'error'); return; }
+      if (!semester) { showToast('Select a semester', 'error'); return; }
+      if (!year)     { showToast('Enter a year', 'error'); return; }
+
+      const enroll = Number(document.getElementById('e-enrollment').value) || 0;
+      const fee    = Number(document.getElementById('e-fee').value) || 0;
+      const row = {
+        'Class'                 : cls,
+        'Semester'              : semester,
+        'Year'                  : Number(year),
+        'Total Enrollment'      : enroll,
+        'Course Fee Per Student': fee,
+        'Semester Total'        : enroll * fee,
+        'Notes'                 : document.getElementById('e-notes').value.trim()
+      };
+
+      const btn = document.getElementById('entry-save-btn');
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        if (editingEntryId) {
+          await apiPost({ action: 'updateBudgetEntry', id: editingEntryId, row });
+          showToast('Budget entry updated');
+        } else {
+          await apiPost({ action: 'addBudgetEntry', row });
+          showToast('Budget entry added');
+        }
+        closeModal('entry-modal');
+        await load();
+      } finally {
+        btn.disabled = false; btn.textContent = 'Save';
+      }
+    }
+
+    async function deleteEntry(id, cls, semester) {
+      if (!confirm('Delete ' + semester + ' budget entry for ' + cls + '? This cannot be undone.')) return;
+      try {
+        await apiPost({ action: 'deleteBudgetEntry', id });
+        showToast('Budget entry deleted');
+        await load();
+      } catch (e) { /* toast shown */ }
+    }
+
+    function exportSpending() {
+      downloadCSV(filteredSpend.map(r => ({
+        'Date'           : r['Date'],
+        'Item Name'      : r['Item Name'],
+        'Class'          : r['Class'],
+        'Quantity'       : r['Quantity'],
+        'Invoice Amount' : r['Invoice Amount'],
+        'Shipping & Tax' : r['Shipping Tax'],
+        'Total Cost'     : r['Total Cost'],
+        'Notes'          : r['Notes']
+      })), 'spending-' + selectedYear() + '.csv');
+    }
+
+    load();
+  </script>
+</body>
+</html>

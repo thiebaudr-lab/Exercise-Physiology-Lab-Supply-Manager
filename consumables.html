@@ -38,6 +38,7 @@
           <a href="hardware.html"    class="nav-link">Hardware</a>
           <a href="daily-log.html"   class="nav-link">Daily Log</a>
           <a href="reports.html"     class="nav-link">Reports</a>
+          <a href="budget.html"      class="nav-link">Budget</a>
           <a href="settings.html"    class="nav-link">Settings</a>
         </nav>
       </div>
@@ -180,7 +181,7 @@
 
   <!-- Restock Modal -->
   <div id="restock-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('restock-modal')">
-    <div class="modal-box" style="max-width:400px;">
+    <div class="modal-box" style="max-width:460px;">
       <div class="modal-header">
         <span class="modal-title">Restock Supply</span>
         <button class="modal-close" onclick="closeModal('restock-modal')">✕</button>
@@ -188,10 +189,26 @@
       <div class="modal-body">
         <div style="font-size:.88rem;color:var(--text-1);font-weight:500;margin-bottom:4px;" id="restock-name"></div>
         <div style="font-size:.75rem;color:var(--text-3);margin-bottom:18px;" id="restock-class"></div>
-        <div class="form-group">
-          <label class="form-label">Quantity Received *</label>
-          <input id="restock-qty" class="form-input" type="number" min="1" placeholder="How many units received?" />
-          <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">This will be added to the current stock on hand.</span>
+        <div class="form-grid">
+          <div class="form-group span2">
+            <label class="form-label">Quantity Received *</label>
+            <input id="restock-qty" class="form-input" type="number" min="1" placeholder="How many units received?" />
+            <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">This will be added to the current stock on hand.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Invoice Amount ($)</label>
+            <input id="restock-invoice" class="form-input" type="number" min="0" step="0.01" placeholder="0.00" />
+            <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">Actual cost of items on the invoice.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Shipping &amp; Tax Costs ($)</label>
+            <input id="restock-shipping" class="form-input" type="number" min="0" step="0.01" placeholder="0.00" />
+            <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">Portion of shipping/tax for this item.</span>
+          </div>
+          <div class="form-group span2">
+            <label class="form-label">Notes</label>
+            <input id="restock-notes" class="form-input" type="text" placeholder="Vendor, order number, etc. (optional)" />
+          </div>
         </div>
       </div>
       <div class="modal-footer">
@@ -458,17 +475,23 @@
       restockingId = id;
       document.getElementById('restock-name').textContent  = item['Name'];
       document.getElementById('restock-class').textContent = item['Class'] + ' · Currently ' + (Number(item['Quantity']) || 0) + ' on hand';
-      document.getElementById('restock-qty').value = '';
+      document.getElementById('restock-qty').value      = '';
+      document.getElementById('restock-invoice').value  = '';
+      document.getElementById('restock-shipping').value = '';
+      document.getElementById('restock-notes').value    = '';
       openModal('restock-modal');
     }
 
     async function confirmRestock() {
-      const qty = Number(document.getElementById('restock-qty').value);
+      const qty      = Number(document.getElementById('restock-qty').value);
+      const invoice  = Number(document.getElementById('restock-invoice').value)  || 0;
+      const shipping = Number(document.getElementById('restock-shipping').value) || 0;
+      const notes    = document.getElementById('restock-notes').value.trim();
       if (!qty || qty < 1) { showToast('Enter a quantity received', 'error'); return; }
       const btn = document.getElementById('restock-btn');
       btn.disabled = true; btn.textContent = 'Saving…';
       try {
-        await apiPost({ action: 'restockConsumable', id: restockingId, qty });
+        await apiPost({ action: 'restockConsumable', id: restockingId, qty, invoiceAmount: invoice, shippingTax: shipping, notes });
         showToast('Stock updated');
         closeModal('restock-modal');
         await load();

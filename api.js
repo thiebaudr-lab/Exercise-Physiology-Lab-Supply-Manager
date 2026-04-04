@@ -96,6 +96,16 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function fmt$(n) {
+  return '$' + Number(n).toFixed(2);
+}
+
+function getYear(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  return isNaN(d) ? null : d.getFullYear();
+}
+
 // ── Status Helpers ────────────────────────────────────────────
 
 function calPill(dateStr, needsCal) {

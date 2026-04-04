@@ -9,7 +9,7 @@ A multi-page static web application (LIMS) for an exercise physiology lab. Googl
 ## Architecture
 
 ```
-Open eQuella (8 static HTML/CSS/JS files)
+Open eQuella (10 static HTML/CSS/JS/JPG files)
         │
         │  fetch() calls
         ▼
@@ -17,7 +17,7 @@ Google Apps Script Web App  (Code.gs — deployed separately)
         │
         │  Sheets API (server-side, no CORS issues)
         ▼
-Google Sheet (7 tabs)
+Google Sheet (9 tabs)
 ```
 
 ## File Structure
@@ -32,6 +32,7 @@ Google Sheet (7 tabs)
 | `hardware.html` | CRUD for hardware — per-device calibration toggle, service date tracking |
 | `daily-log.html` | Log entry form + history table; logging a consumable auto-decrements qty |
 | `reports.html` | Usage pivot, reorder report, calibration status, semester/annual usage — all filterable + CSV export |
+| `budget.html` | Per-class budget tracking — semester enrollment entry, KPI cards, spending history, CSV export |
 | `settings.html` | Manage Staff/Vendor/Class/Item dropdowns; connection test; setup instructions |
 
 ## Google Sheet Schema
@@ -50,12 +51,17 @@ Google Sheet (7 tabs)
 
 **Items** — `ID | Name` (lookup list of consumable item names; seeded with 35 common supplies)
 
+**Budget** — `ID | Class | Semester | Year | Total Enrollment | Course Fee Per Student | Semester Total | Notes`
+
+**Restock Log** — `ID | Date | Item Name | Class | Quantity | Invoice Amount | Shipping Tax | Total Cost | Notes`
+
 ## Key Behaviours
 
 - **Per-class inventory pools:** Each `Name + Class` pair is a unique row in Consumables. The same physical item (e.g., "Alcohol Wipes") has separate stock rows per class. This matches the physical reality of course-allocated supplies.
 - **Auto-create on first log:** `addLogEntry()` in Code.gs matches by `Name + Class`. If no row exists for that combination, it auto-creates one with `Quantity = -used`. The user then restocks to set the correct on-hand value.
 - **Auto-decrement:** When a Daily Log entry with `Item Type = Consumable` is saved, `addLogEntry()` subtracts `Quantity Used` from the matched Consumables row. Quantities can go negative (no floor) to reflect usage before stock is set.
-- **Restock action:** `restockConsumable` is additive — it adds the received qty to the current value (not a set). This correctly handles negative balances from the auto-create pattern.
+- **Restock action:** `restockConsumable` is additive — it adds the received qty to the current value (not a set). Also logs to Restock Log with invoice amount, shipping/tax, and total cost. This correctly handles negative balances from the auto-create pattern.
+- **Budget tracking:** Fiscal year = calendar year (Jan–Dec). Budget entries are per class+semester+year. Allocated = sum of all `Semester Total` entries for that class+year. Spent = sum of all Restock Log `Total Cost` entries for that class+year. Classes without a `Course Fee Per Student > 0` display spending only (no allocated/remaining balance). Dashboard shows compact per-class remaining balance.
 - **Low stock alert:** Dashboard and Reports flag items where `Quantity ≤ Reorder Threshold`.
 - **Calibration alert:** Dashboard and Reports flag hardware where `Needs Calibration = Yes` and `Next Calibration` is within 14 days or overdue.
 - **Date handling:** Apps Script converts Google Sheets `Date` objects to `yyyy-MM-dd` strings (via `Utilities.formatDate`) so HTML `<input type="date">` fields work directly.
@@ -85,7 +91,7 @@ apiPost({ action: 'restockConsumable', id: 'ABC123', qty: 50 })
 apiPost({ action: 'clearConsumables' })
 ```
 
-Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | deleteVendor | addStaff | deleteStaff | addClass | deleteClass | addItem | deleteItem`
+Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | deleteVendor | addStaff | deleteStaff | addClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry`
 
 ## Shared Utilities in api.js
 
@@ -99,6 +105,8 @@ Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVend
 | `fmtDate(val)` | Formats `yyyy-MM-dd` to `Mon DD, YYYY` |
 | `daysUntil(dateStr)` | Days from today to a date (negative = overdue) |
 | `today()` | Returns today as `yyyy-MM-dd` |
+| `fmt$(n)` | Formats a number as a dollar string (e.g. `$12.50`) |
+| `getYear(dateStr)` | Extracts the 4-digit year from a `yyyy-MM-dd` string |
 | `calPill(dateStr, needsCal)` | Returns calibration status pill HTML |
 | `servicePill(dateStr)` | Returns service status pill HTML |
 | `stockPill(qty, threshold)` | Returns stock level pill HTML |
@@ -127,7 +135,7 @@ Note: `backdrop-filter` is intentionally absent from `.modal-overlay` — it cre
 
 ## Build & Deployment
 
-Run `bash build.sh` from the repo root to populate `deploy/` with the 9 files needed for eQuella (HTML, CSS, JS, and `lab-banner.jpg`). The `deploy/` folder is gitignored.
+Run `bash build.sh` from the repo root to populate `deploy/` with the 10 files needed for eQuella (HTML, CSS, JS, and `lab-banner.jpg`). The `deploy/` folder is gitignored.
 
 Full deployment steps:
 1. Create a Google Sheet → Extensions → Apps Script → paste `Code.gs`

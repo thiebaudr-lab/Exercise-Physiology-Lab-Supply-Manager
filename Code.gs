@@ -22,7 +22,9 @@ var TABS = {
   vendors     : 'Vendors',
   staff       : 'Staff',
   classes     : 'Classes',
-  items       : 'Items'
+  items       : 'Items',
+  budget      : 'Budget',
+  restockLog  : 'Restock Log'
 };
 
 // ── Routers ──────────────────────────────────────────────────
@@ -39,6 +41,8 @@ function doGet(e) {
       case 'getStaff'       : result = getRows(TABS.staff);       break;
       case 'getClasses'     : result = getRows(TABS.classes);     break;
       case 'getItems'       : result = getRows(TABS.items);       break;
+      case 'getBudget'      : result = getRows(TABS.budget);      break;
+      case 'getRestockLog'  : result = getRows(TABS.restockLog);  break;
       case 'getAll'         : result = getAll();                  break;
       default               : result = { error: 'Unknown action: ' + action };
     }
@@ -56,26 +60,29 @@ function doPost(e) {
   var result;
   try {
     switch (data.action) {
-      case 'addConsumable'     : result = addRow(TABS.consumables, data.row);               break;
-      case 'updateConsumable'  : result = updateRow(TABS.consumables, data.id, data.row);  break;
-      case 'deleteConsumable'  : result = deleteRow(TABS.consumables, data.id);            break;
-      case 'restockConsumable' : result = restockConsumable(data.id, data.qty);            break;
-      case 'clearConsumables'  : result = clearConsumables();                              break;
-      case 'addHardware'      : result = addRow(TABS.hardware, data.row);                  break;
-      case 'updateHardware'   : result = updateRow(TABS.hardware, data.id, data.row);      break;
-      case 'deleteHardware'   : result = deleteRow(TABS.hardware, data.id);                break;
-      case 'addLogEntry'      : result = addLogEntry(data.row);                            break;
-      case 'updateLogEntry'   : result = updateRow(TABS.log, data.id, data.row);           break;
-      case 'deleteLogEntry'   : result = deleteRow(TABS.log, data.id);                     break;
-      case 'addVendor'        : result = addRow(TABS.vendors, data.row);                   break;
-      case 'deleteVendor'     : result = deleteRow(TABS.vendors, data.id);                 break;
-      case 'addStaff'         : result = addRow(TABS.staff, data.row);                     break;
-      case 'deleteStaff'      : result = deleteRow(TABS.staff, data.id);                   break;
-      case 'addClass'         : result = addRow(TABS.classes, data.row);                   break;
-      case 'deleteClass'      : result = deleteRow(TABS.classes, data.id);                 break;
-      case 'addItem'          : result = addRow(TABS.items, data.row);                     break;
-      case 'deleteItem'       : result = deleteRow(TABS.items, data.id);                   break;
-      default                 : result = { error: 'Unknown action: ' + data.action };
+      case 'addConsumable'     : result = addRow(TABS.consumables, data.row);                                          break;
+      case 'updateConsumable'  : result = updateRow(TABS.consumables, data.id, data.row);                             break;
+      case 'deleteConsumable'  : result = deleteRow(TABS.consumables, data.id);                                       break;
+      case 'restockConsumable' : result = restockConsumable(data.id, data.qty, data.invoiceAmount, data.shippingTax, data.notes); break;
+      case 'clearConsumables'  : result = clearConsumables();                                                         break;
+      case 'addHardware'       : result = addRow(TABS.hardware, data.row);                                            break;
+      case 'updateHardware'    : result = updateRow(TABS.hardware, data.id, data.row);                                break;
+      case 'deleteHardware'    : result = deleteRow(TABS.hardware, data.id);                                          break;
+      case 'addLogEntry'       : result = addLogEntry(data.row);                                                      break;
+      case 'updateLogEntry'    : result = updateRow(TABS.log, data.id, data.row);                                     break;
+      case 'deleteLogEntry'    : result = deleteRow(TABS.log, data.id);                                               break;
+      case 'addVendor'         : result = addRow(TABS.vendors, data.row);                                             break;
+      case 'deleteVendor'      : result = deleteRow(TABS.vendors, data.id);                                           break;
+      case 'addStaff'          : result = addRow(TABS.staff, data.row);                                               break;
+      case 'deleteStaff'       : result = deleteRow(TABS.staff, data.id);                                             break;
+      case 'addClass'          : result = addRow(TABS.classes, data.row);                                             break;
+      case 'deleteClass'       : result = deleteRow(TABS.classes, data.id);                                           break;
+      case 'addItem'           : result = addRow(TABS.items, data.row);                                               break;
+      case 'deleteItem'        : result = deleteRow(TABS.items, data.id);                                             break;
+      case 'addBudgetEntry'    : result = addRow(TABS.budget, data.row);                                              break;
+      case 'updateBudgetEntry' : result = updateRow(TABS.budget, data.id, data.row);                                  break;
+      case 'deleteBudgetEntry' : result = deleteRow(TABS.budget, data.id);                                            break;
+      default                  : result = { error: 'Unknown action: ' + data.action };
     }
   } catch (err) {
     result = { error: err.toString() };
@@ -107,7 +114,6 @@ function getRows(tabName) {
     var obj = {};
     headers.forEach(function (h, i) {
       var val = row[i];
-      // Convert Date objects to ISO date strings for HTML date inputs
       if (val instanceof Date) {
         val = Utilities.formatDate(val, tz, 'yyyy-MM-dd');
       }
@@ -128,7 +134,6 @@ function getDailyLog(params) {
   if (params.to && params.to !== '') {
     rows = rows.filter(function (r) { return String(r['Date']) <= params.to; });
   }
-  // Return most recent first
   return rows.reverse();
 }
 
@@ -139,7 +144,9 @@ function getAll() {
     log         : getDailyLog({}),
     vendors     : getRows(TABS.vendors),
     staff       : getRows(TABS.staff),
-    classes     : getRows(TABS.classes)
+    classes     : getRows(TABS.classes),
+    budget      : getRows(TABS.budget),
+    restockLog  : getRows(TABS.restockLog)
   };
 }
 
@@ -214,7 +221,6 @@ function addLogEntry(rowData) {
       }
     }
 
-    // Auto-create the row and record the deficit if this Name+Class hasn't been seen before
     if (!found) {
       addRow(TABS.consumables, {
         'Name'             : rowData['Item Name'],
@@ -228,18 +234,39 @@ function addLogEntry(rowData) {
   return result;
 }
 
-// Add qty to existing consumable stock (restock/receive new supplies)
-function restockConsumable(id, qty) {
+// Add qty to existing consumable stock and log the cost to Restock Log
+function restockConsumable(id, qty, invoiceAmount, shippingTax, notes) {
   var sheet = getSheet(TABS.consumables);
   var data  = sheet.getDataRange().getValues();
   var hdrs  = data[0];
   var idIdx = hdrs.indexOf('ID');
   var qtyI  = hdrs.indexOf('Quantity');
+  var nameI = hdrs.indexOf('Name');
+  var clsI  = hdrs.indexOf('Class');
+
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][idIdx]) === String(id)) {
-      var cur = Number(data[i][qtyI]) || 0;
-      sheet.getRange(i + 1, qtyI + 1).setValue(cur + Number(qty));
-      return { success: true, newQty: cur + Number(qty) };
+      var cur  = Number(data[i][qtyI]) || 0;
+      var name = String(data[i][nameI]);
+      var cls  = String(data[i][clsI]);
+      var newQty = cur + Number(qty);
+      sheet.getRange(i + 1, qtyI + 1).setValue(newQty);
+
+      var inv  = Number(invoiceAmount) || 0;
+      var ship = Number(shippingTax)   || 0;
+      var tz   = ss.getSpreadsheetTimeZone();
+      addRow(TABS.restockLog, {
+        'Date'          : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'),
+        'Item Name'     : name,
+        'Class'         : cls,
+        'Quantity'      : Number(qty),
+        'Invoice Amount': inv,
+        'Shipping Tax'  : ship,
+        'Total Cost'    : inv + ship,
+        'Notes'         : notes || ''
+      });
+
+      return { success: true, newQty: newQty };
     }
   }
   return { error: 'Row not found: ' + id };
@@ -270,10 +297,18 @@ function initializeSheets() {
       name: TABS.log,
       headers: ['ID', 'Date', 'Item Name', 'Item Type', 'Quantity Used', 'Class', 'Used By', 'Notes']
     },
-    { name: TABS.vendors, headers: ['ID', 'Name'] },
-    { name: TABS.staff,   headers: ['ID', 'Name'] },
-    { name: TABS.classes, headers: ['ID', 'Name'] },
-    { name: TABS.items,   headers: ['ID', 'Name'] }
+    { name: TABS.vendors,    headers: ['ID', 'Name'] },
+    { name: TABS.staff,      headers: ['ID', 'Name'] },
+    { name: TABS.classes,    headers: ['ID', 'Name'] },
+    { name: TABS.items,      headers: ['ID', 'Name'] },
+    {
+      name: TABS.budget,
+      headers: ['ID', 'Class', 'Semester', 'Year', 'Total Enrollment', 'Course Fee Per Student', 'Semester Total', 'Notes']
+    },
+    {
+      name: TABS.restockLog,
+      headers: ['ID', 'Date', 'Item Name', 'Class', 'Quantity', 'Invoice Amount', 'Shipping Tax', 'Total Cost', 'Notes']
+    }
   ];
 
   defs.forEach(function (def) {
@@ -318,7 +353,6 @@ function initializeSheets() {
     'Gas Washers','Command Strips','Posters'
   ];
 
-  // Seed Items lookup tab if empty
   var its = ss.getSheetByName(TABS.items);
   if (its.getLastRow() < 2) {
     its.getRange(2, 1, SUPPLY_NAMES.length, 2).setValues(
