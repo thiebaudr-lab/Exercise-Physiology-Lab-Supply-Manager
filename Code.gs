@@ -24,7 +24,9 @@ var TABS = {
   classes     : 'Classes',
   items       : 'Items',
   budget      : 'Budget',
-  restockLog  : 'Restock Log'
+  restockLog  : 'Restock Log',
+  maintTasks  : 'Maintenance Tasks',
+  maintLog    : 'Maintenance Log'
 };
 
 // ── Routers ──────────────────────────────────────────────────
@@ -43,6 +45,8 @@ function doGet(e) {
       case 'getItems'       : result = getRows(TABS.items);       break;
       case 'getBudget'      : result = getRows(TABS.budget);      break;
       case 'getRestockLog'  : result = getRows(TABS.restockLog);  break;
+      case 'getMaintTasks'  : result = getRows(TABS.maintTasks);  break;
+      case 'getMaintLog'    : result = getRows(TABS.maintLog);    break;
       case 'getAll'         : result = getAll();                  break;
       default               : result = { error: 'Unknown action: ' + action };
     }
@@ -82,6 +86,11 @@ function doPost(e) {
       case 'addBudgetEntry'    : result = addRow(TABS.budget, data.row);                                              break;
       case 'updateBudgetEntry' : result = updateRow(TABS.budget, data.id, data.row);                                  break;
       case 'deleteBudgetEntry' : result = deleteRow(TABS.budget, data.id);                                            break;
+      case 'addMaintTask'      : result = addRow(TABS.maintTasks, data.row);                                          break;
+      case 'updateMaintTask'   : result = updateRow(TABS.maintTasks, data.id, data.row);                              break;
+      case 'deleteMaintTask'   : result = deleteRow(TABS.maintTasks, data.id);                                        break;
+      case 'completeMaintTask' : result = completeMaintTask(data.taskId, data.log);                                   break;
+      case 'deleteMaintLog'    : result = deleteRow(TABS.maintLog, data.id);                                          break;
       default                  : result = { error: 'Unknown action: ' + data.action };
     }
   } catch (err) {
@@ -146,7 +155,9 @@ function getAll() {
     staff       : getRows(TABS.staff),
     classes     : getRows(TABS.classes),
     budget      : getRows(TABS.budget),
-    restockLog  : getRows(TABS.restockLog)
+    restockLog  : getRows(TABS.restockLog),
+    maintTasks  : getRows(TABS.maintTasks),
+    maintLog    : getRows(TABS.maintLog)
   };
 }
 
@@ -197,40 +208,29 @@ function deleteRow(tabName, id) {
   return { error: 'Row not found: ' + id };
 }
 
+// Decrement a consumable by name+class; auto-creates the row with negative qty if not found
+function decrementConsumable(name, cls, qty) {
+  var sheet  = getSheet(TABS.consumables);
+  var data   = sheet.getDataRange().getValues();
+  var hdrs   = data[0];
+  var nameI  = hdrs.indexOf('Name');
+  var classI = hdrs.indexOf('Class');
+  var qtyI   = hdrs.indexOf('Quantity');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][nameI]) === String(name) && String(data[i][classI]) === String(cls)) {
+      sheet.getRange(i + 1, qtyI + 1).setValue((Number(data[i][qtyI]) || 0) - qty);
+      return;
+    }
+  }
+  addRow(TABS.consumables, { 'Name': name, 'Class': cls, 'Quantity': -qty, 'Reorder Threshold': 0 });
+}
+
 // Log entry: auto-creates consumable row (Name+Class) if not found, then decrements
 function addLogEntry(rowData) {
   var result = addRow(TABS.log, rowData);
-
   if (rowData['Item Type'] === 'Consumable' && rowData['Item Name'] && rowData['Class'] && rowData['Quantity Used']) {
-    var sheet = getSheet(TABS.consumables);
-    var data  = sheet.getDataRange().getValues();
-    var hdrs  = data[0];
-    var nameI  = hdrs.indexOf('Name');
-    var classI = hdrs.indexOf('Class');
-    var qtyI   = hdrs.indexOf('Quantity');
-    var used   = Number(rowData['Quantity Used']) || 0;
-    var found  = false;
-
-    for (var i = 1; i < data.length; i++) {
-      if (String(data[i][nameI]) === String(rowData['Item Name']) &&
-          String(data[i][classI]) === String(rowData['Class'])) {
-        var cur = Number(data[i][qtyI]) || 0;
-        sheet.getRange(i + 1, qtyI + 1).setValue(cur - used);
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      addRow(TABS.consumables, {
-        'Name'             : rowData['Item Name'],
-        'Class'            : rowData['Class'],
-        'Quantity'         : -used,
-        'Reorder Threshold': 0
-      });
-    }
+    decrementConsumable(rowData['Item Name'], rowData['Class'], Number(rowData['Quantity Used']) || 0);
   }
-
   return result;
 }
 
@@ -272,6 +272,69 @@ function restockConsumable(id, qty, invoiceAmount, shippingTax, notes) {
   return { error: 'Row not found: ' + id };
 }
 
+// Mark a maintenance task complete: logs the event, optionally decrements a consumable, and auto-advances Next Due
+function completeMaintTask(taskId, logData) {
+  var tz          = ss.getSpreadsheetTimeZone();
+  var dateStr     = logData['Date'] || Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
+
+  addRow(TABS.maintLog, {
+    'Date'         : dateStr,
+    'Hardware ID'  : logData['Hardware ID']   || '',
+    'Hardware Name': logData['Hardware Name'] || '',
+    'Task Name'    : logData['Task Name']     || '',
+    'Completed By' : logData['Completed By']  || '',
+    'Supplies Used': logData['Supplies Used'] || '',
+    'Notes'        : logData['Notes']         || ''
+  });
+
+  var cQty = Number(logData['Consumable Qty']) || 0;
+  if (logData['Consumable Name'] && logData['Consumable Class'] && cQty > 0) {
+    decrementConsumable(logData['Consumable Name'], logData['Consumable Class'], cQty);
+  }
+
+  var sheet      = getSheet(TABS.maintTasks);
+  var data       = sheet.getDataRange().getValues();
+  var hdrs       = data[0];
+  var idIdx      = hdrs.indexOf('ID');
+  var freqIdx    = hdrs.indexOf('Frequency');
+  var nextDueIdx = hdrs.indexOf('Next Due');
+
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx]) === String(taskId)) {
+      var nextDue = advanceDate(new Date(dateStr + 'T00:00:00'), String(data[i][freqIdx]));
+      if (nextDue) {
+        sheet.getRange(i + 1, nextDueIdx + 1).setValue(Utilities.formatDate(nextDue, tz, 'yyyy-MM-dd'));
+      }
+      return { success: true };
+    }
+  }
+  return { error: 'Task not found: ' + taskId };
+}
+
+// Returns the next due date based on frequency string.
+// Named presets: Monthly, Every 3 Months, Every 6 Months, Annually.
+// Custom format: "Every N Days|Weeks|Months|Years" (e.g. "Every 2 Weeks").
+// Returns null only if frequency is unrecognizable (Next Due left unchanged).
+function advanceDate(fromDate, frequency) {
+  var d = new Date(fromDate.getTime());
+  switch (frequency) {
+    case 'Monthly':        d.setMonth(d.getMonth() + 1);       return d;
+    case 'Every 3 Months': d.setMonth(d.getMonth() + 3);       return d;
+    case 'Every 6 Months': d.setMonth(d.getMonth() + 6);       return d;
+    case 'Annually':       d.setFullYear(d.getFullYear() + 1); return d;
+    default:
+      var m = frequency.match(/^Every (\d+) (Day|Days|Week|Weeks|Month|Months|Year|Years)$/i);
+      if (!m) return null;
+      var n    = parseInt(m[1], 10);
+      var unit = m[2].toLowerCase();
+      if (unit.startsWith('day'))   d.setDate(d.getDate() + n);
+      else if (unit.startsWith('week'))  d.setDate(d.getDate() + n * 7);
+      else if (unit.startsWith('month')) d.setMonth(d.getMonth() + n);
+      else if (unit.startsWith('year'))  d.setFullYear(d.getFullYear() + n);
+      return d;
+  }
+}
+
 // Wipe all consumable rows (keeps header row)
 function clearConsumables() {
   var sheet = getSheet(TABS.consumables);
@@ -291,7 +354,7 @@ function initializeSheets() {
     },
     {
       name: TABS.hardware,
-      headers: ['ID', 'Name', 'Vendor', 'Purchase Date', 'Cost', 'Warranty Expiry', 'Needs Calibration', 'Last Calibration', 'Next Calibration', 'Last Service', 'Next Service', 'Status', 'Notes']
+      headers: ['ID', 'Name', 'Model Number', 'Serial Number', 'BYU-ID', 'Vendor', 'Purchase Date', 'Cost', 'Status', 'Notes']
     },
     {
       name: TABS.log,
@@ -308,6 +371,14 @@ function initializeSheets() {
     {
       name: TABS.restockLog,
       headers: ['ID', 'Date', 'Item Name', 'Class', 'Quantity', 'Invoice Amount', 'Shipping Tax', 'Total Cost', 'Notes']
+    },
+    {
+      name: TABS.maintTasks,
+      headers: ['ID', 'Hardware ID', 'Hardware Name', 'Task Name', 'Frequency', 'Supplies Needed', 'Next Due', 'Notes']
+    },
+    {
+      name: TABS.maintLog,
+      headers: ['ID', 'Date', 'Hardware ID', 'Hardware Name', 'Task Name', 'Completed By', 'Supplies Used', 'Notes']
     }
   ];
 

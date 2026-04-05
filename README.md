@@ -8,9 +8,9 @@ A lightweight, browser-based system for tracking lab supplies, equipment calibra
 
 | Page | Purpose |
 |---|---|
-| **Dashboard** | Live KPIs — budget overview, low stock count, calibration alerts |
+| **Dashboard** | Live KPIs — budget overview, low stock count, maintenance alerts |
 | **Consumables** | Per-class supply inventory with reorder thresholds and restock tracking |
-| **Hardware** | Track equipment, calibration schedules, and service dates |
+| **Hardware** | Track equipment with model/serial/BYU-ID; per-device maintenance tasks, history, and inventory deduction |
 | **Daily Log** | Record supply usage by class; auto-decrements consumable inventory |
 | **Reports** | Usage pivot, reorder report, calibration status, and semester/annual usage trends — all exportable to CSV |
 | **Budget** | Per-class course fee budget tracking — semester enrollment entry, spending history, remaining balance |
@@ -55,7 +55,7 @@ Go to [sheets.google.com](https://sheets.google.com) and create a new blank spre
 2. Click **Run**
 3. When prompted, click **Review permissions** → **Allow**
 
-This creates nine tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes, Items, Budget, Restock Log) and pre-populates Vendors, Classes, and the Items name lookup with default values.
+This creates eleven tabs (Consumables, Hardware, Daily Log, Vendors, Staff, Classes, Items, Budget, Restock Log, Maintenance Tasks, Maintenance Log) and pre-populates Vendors, Classes, and the Items name lookup with default values.
 
 ### Step 4 — Deploy as a Web App
 
@@ -137,9 +137,23 @@ The Reorder Threshold triggers a low-stock alert on the Dashboard and the Reorde
 ### Tracking Hardware
 
 1. Go to **Hardware** → click **+ Add Hardware**
-2. Check **"This equipment requires periodic calibration"** to enable calibration date fields
-3. Equipment with calibration due within 14 days appears as **Due Soon** (amber); past due shows as **Overdue** (red)
-4. Both the Dashboard and Reports page surface overdue items automatically
+2. Enter the equipment name, Model Number, Serial Number, and BYU-ID (university asset tag)
+3. Click **🔧 Maintenance** on any device to manage its maintenance tasks
+
+**Adding maintenance tasks:**
+1. In the Maintenance modal, click **+ Add Task**
+2. Enter the task name (e.g. "Belt Lubrication"), frequency, next due date, and supplies needed
+3. Frequency options: Monthly, Every 3 Months, Every 6 Months, Annually, or a custom interval (e.g. "Every 2 Weeks")
+4. When a task is due within 14 days the device row turns amber; overdue turns red. The Dashboard Maintenance Alerts panel shows all tasks due soon
+
+**Marking tasks complete:**
+1. Click **✓ Complete** on a task
+2. Enter the date, who completed it, and any notes
+3. Optionally select a **Class** and **Item** to deduct consumable inventory at the same time (e.g. sampling lines replaced from ESS 375L stock)
+4. The Next Due date auto-advances based on the task frequency
+
+**Viewing history:**
+Click the **History** tab in the Maintenance modal to see a full log of past completions for that device.
 
 ### Running Reports
 
@@ -148,7 +162,7 @@ The Reorder Threshold triggers a low-stock alert on the Dashboard and the Reorde
 3. Four reports update automatically:
    - **Usage Summary** — total quantity used per item, number of sessions, top user and class
    - **Reorder Report** — all consumables at or below their reorder threshold
-   - **Calibration Status** — all equipment requiring calibration, sorted by urgency
+   - **Maintenance Status** — all maintenance tasks across all devices, sorted by urgency
    - **Semester & Annual Usage** — consumable totals broken down by Winter / Spring / Fall and year, per class. Use this to plan ordering quantities for upcoming semesters.
 4. Click **Export CSV** on any section to download that report, or **Export All CSV** to download all four
 
@@ -219,7 +233,7 @@ Upload the contents of `deploy/` to your Open eQuella microsite and set `index.h
 | `style.css` | Shared stylesheet for all pages |
 | `index.html` | Dashboard with lab banner and live KPIs |
 | `consumables.html` | Consumables CRUD with per-class tabs and restock |
-| `hardware.html` | Hardware CRUD with calibration and service tracking |
+| `hardware.html` | Hardware CRUD with model/serial/BYU-ID; per-device maintenance task management and history |
 | `daily-log.html` | Daily usage log |
 | `reports.html` | Reports and CSV export, including semester/annual usage |
 | `budget.html` | Per-class budget tracking — semester enrollment, spending history, remaining balance |

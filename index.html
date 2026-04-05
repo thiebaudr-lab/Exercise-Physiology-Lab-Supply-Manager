@@ -42,17 +42,18 @@
   </header>
 
   <main class="main">
-    <!-- Page Header -->
-    <div class="page-header anim d1">
-      <div class="eyebrow">Exercise Physiology Laboratory</div>
-      <h1 class="page-title">Exercise Physiology Lab Center</h1>
-      <p class="page-subtitle" id="dash-subtitle">Loading live data…</p>
+    <!-- Hero Banner -->
+    <div class="anim d1" style="position:relative;border-radius:16px;overflow:hidden;margin-bottom:16px;box-shadow:0 4px 24px rgba(0,0,0,.4);">
+      <img src="lab-banner.jpg" alt="Human Performance Lab" style="width:100%;display:block;max-height:380px;object-fit:cover;object-position:center 40%;" />
+      <div style="position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,rgba(0,0,0,.35) 45%,transparent 75%);"></div>
+      <div style="position:absolute;bottom:0;left:0;padding:24px 28px;">
+        <div class="eyebrow" style="color:rgba(255,255,255,.65);">Exercise Physiology Laboratory</div>
+        <h1 class="page-title" style="color:#fff;margin:4px 0 0;">Exercise Physiology Lab Center</h1>
+      </div>
     </div>
 
-    <!-- Lab Banner -->
-    <div class="anim d2" style="border-radius:16px;overflow:hidden;margin-bottom:24px;box-shadow:0 4px 24px rgba(0,0,0,.4);">
-      <img src="lab-banner.jpg" alt="Human Performance Lab" style="width:100%;display:block;max-height:340px;object-fit:cover;object-position:center 30%;" />
-    </div>
+    <!-- Subtitle -->
+    <p class="page-subtitle anim d2" id="dash-subtitle" style="margin-bottom:24px;">Loading live data…</p>
 
     <!-- Budget Overview -->
     <div class="glass anim d3" style="margin-bottom:28px;overflow:hidden;">
@@ -91,7 +92,7 @@
         <div class="kpi-orb"></div>
         <div class="kpi-icon">🔧</div>
         <div class="kpi-body">
-          <div class="kpi-label">Calibration Alerts</div>
+          <div class="kpi-label">Maintenance Alerts</div>
           <div class="kpi-num" id="kpi-cal">—</div>
           <div class="kpi-meta"><span class="kpi-sub" id="kpi-cal-sub">Loading…</span></div>
         </div>
@@ -114,12 +115,12 @@
         <div id="low-stock-list"></div>
       </div>
 
-      <!-- Calibration Alerts -->
+      <!-- Maintenance Alerts -->
       <div class="glass" style="overflow:hidden;">
         <div class="panel-header">
           <div class="panel-dot panel-dot-amber"></div>
           <div>
-            <div class="panel-title">Calibration Due</div>
+            <div class="panel-title">Maintenance Due</div>
             <div class="panel-subtitle" id="cal-count">Loading…</div>
           </div>
           <a href="hardware.html" class="btn btn-ghost btn-sm no-print" style="margin-left:auto;">View →</a>
@@ -152,11 +153,11 @@
       }
 
       const cons       = data.consumables || [];
-      const hw         = data.hardware    || [];
       const log        = data.log         || [];
       const budget     = data.budget      || [];
       const restockLog = data.restockLog  || [];
       const classes    = data.classes     || [];
+      const maintTasks = data.maintTasks  || [];
 
       // ── KPIs ──
       const lowStock = cons.filter(c => {
@@ -166,12 +167,11 @@
       });
       const outOfStock = cons.filter(c => (Number(c['Quantity']) || 0) <= 0);
 
-      const calAlerts = hw.filter(h => {
-        if (!h['Needs Calibration'] || h['Needs Calibration'] === 'No') return false;
-        const d = daysUntil(h['Next Calibration']);
+      const maintAlerts = maintTasks.filter(t => {
+        const d = daysUntil(t['Next Due']);
         return d !== null && d <= 14;
       });
-      const calOverdue = calAlerts.filter(h => (daysUntil(h['Next Calibration']) || 0) < 0);
+      const maintOverdue = maintAlerts.filter(t => (daysUntil(t['Next Due']) || 0) < 0);
 
       const todayStr   = today();
       const todayCount = log.filter(e => String(e['Date']) === todayStr).length;
@@ -180,12 +180,12 @@
 
       document.getElementById('kpi-low').textContent     = lowStock.length;
       document.getElementById('kpi-low-sub').textContent = outOfStock.length + ' critical · ' + (lowStock.length - outOfStock.length) + ' warning';
-      document.getElementById('kpi-cal').textContent     = calAlerts.length;
-      document.getElementById('kpi-cal-sub').textContent = calOverdue.length + ' overdue · ' + (calAlerts.length - calOverdue.length) + ' due soon';
+      document.getElementById('kpi-cal').textContent     = maintAlerts.length;
+      document.getElementById('kpi-cal-sub').textContent = maintOverdue.length + ' overdue · ' + (maintAlerts.length - maintOverdue.length) + ' due soon';
 
       document.getElementById('dash-subtitle').innerHTML =
         'You have <strong style="color:var(--rose);">' + lowStock.length + ' low-stock item' + (lowStock.length !== 1 ? 's' : '') + '</strong> and ' +
-        '<strong style="color:var(--amber);">' + calAlerts.length + ' calibration alert' + (calAlerts.length !== 1 ? 's' : '') + '</strong> requiring attention.';
+        '<strong style="color:var(--amber);">' + maintAlerts.length + ' maintenance alert' + (maintAlerts.length !== 1 ? 's' : '') + '</strong> requiring attention.';
 
       // ── Low Stock Alerts Panel ──
       const lsList = document.getElementById('low-stock-list');
@@ -207,21 +207,21 @@
         }).join('');
       }
 
-      // ── Calibration Alerts Panel ──
+      // ── Maintenance Alerts Panel ──
       const calList = document.getElementById('cal-list');
-      document.getElementById('cal-count').textContent = calAlerts.length + ' item' + (calAlerts.length !== 1 ? 's' : '') + ' need attention';
-      if (calAlerts.length === 0) {
-        calList.innerHTML = '<div class="alert-row"><div class="empty-text" style="padding:8px 0;">All calibrations current</div></div>';
+      document.getElementById('cal-count').textContent = maintAlerts.length + ' task' + (maintAlerts.length !== 1 ? 's' : '') + ' need attention';
+      if (maintAlerts.length === 0) {
+        calList.innerHTML = '<div class="alert-row"><div class="empty-text" style="padding:8px 0;">All maintenance current</div></div>';
       } else {
-        calList.innerHTML = calAlerts.slice(0, 6).map(h => {
-          const d   = daysUntil(h['Next Calibration']);
+        calList.innerHTML = maintAlerts.slice(0, 6).map(t => {
+          const d   = daysUntil(t['Next Due']);
           const col = d < 0 ? 'var(--rose)' : 'var(--amber)';
           const lbl = d < 0 ? Math.abs(d) + ' days overdue' : d + ' days remaining';
           return `<div class="alert-row">
             <div class="alert-dot" style="background:${col};box-shadow:0 0 6px ${col};"></div>
             <div style="flex:1;min-width:0;">
-              <div class="alert-name">${esc(h['Name'])}</div>
-              <div class="alert-detail">Cal due: ${fmtDate(h['Next Calibration'])} · ${lbl}</div>
+              <div class="alert-name">${esc(t['Task Name'])}</div>
+              <div class="alert-detail">${esc(t['Hardware Name'])} · Due: ${fmtDate(t['Next Due'])} · ${lbl}</div>
             </div>
           </div>`;
         }).join('');

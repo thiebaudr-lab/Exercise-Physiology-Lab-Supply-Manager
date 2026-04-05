@@ -17,7 +17,7 @@ Google Apps Script Web App  (Code.gs — deployed separately)
         │
         │  Sheets API (server-side, no CORS issues)
         ▼
-Google Sheet (9 tabs)
+Google Sheet (11 tabs)
 ```
 
 ## File Structure
@@ -29,7 +29,7 @@ Google Sheet (9 tabs)
 | `style.css` | Shared stylesheet — all pages reference this |
 | `index.html` | Live dashboard — fetches `getAll` on load, computes KPIs client-side |
 | `consumables.html` | CRUD for consumables — add/edit modal, per-class tab filter, restock modal |
-| `hardware.html` | CRUD for hardware — per-device calibration toggle, service date tracking |
+| `hardware.html` | CRUD for hardware — model/serial/BYU-ID fields; per-device maintenance task modal (Tasks + History tabs); mark-complete with inventory deduction |
 | `daily-log.html` | Log entry form + history table; logging a consumable auto-decrements qty |
 | `reports.html` | Usage pivot, reorder report, calibration status, semester/annual usage — all filterable + CSV export |
 | `budget.html` | Per-class budget tracking — semester enrollment entry, KPI cards, spending history, CSV export |
@@ -39,7 +39,7 @@ Google Sheet (9 tabs)
 
 **Consumables** — `ID | Name | Class | Vendor | Unit | Units Per Pack | Cost Per Unit | Quantity | Reorder Threshold | Notes`
 
-**Hardware** — `ID | Name | Vendor | Purchase Date | Cost | Warranty Expiry | Needs Calibration | Last Calibration | Next Calibration | Last Service | Next Service | Status | Notes`
+**Hardware** — `ID | Name | Model Number | Serial Number | BYU-ID | Vendor | Purchase Date | Cost | Status | Notes`
 
 **Daily Log** — `ID | Date | Item Name | Item Type | Quantity Used | Class | Used By | Notes`
 
@@ -55,6 +55,10 @@ Google Sheet (9 tabs)
 
 **Restock Log** — `ID | Date | Item Name | Class | Quantity | Invoice Amount | Shipping Tax | Total Cost | Notes`
 
+**Maintenance Tasks** — `ID | Hardware ID | Hardware Name | Task Name | Frequency | Supplies Needed | Next Due | Notes`
+
+**Maintenance Log** — `ID | Date | Hardware ID | Hardware Name | Task Name | Completed By | Supplies Used | Notes`
+
 ## Key Behaviours
 
 - **Per-class inventory pools:** Each `Name + Class` pair is a unique row in Consumables. The same physical item (e.g., "Alcohol Wipes") has separate stock rows per class. This matches the physical reality of course-allocated supplies.
@@ -63,7 +67,9 @@ Google Sheet (9 tabs)
 - **Restock action:** `restockConsumable` is additive — it adds the received qty to the current value (not a set). Also logs to Restock Log with invoice amount, shipping/tax, and total cost. This correctly handles negative balances from the auto-create pattern.
 - **Budget tracking:** Fiscal year = calendar year (Jan–Dec). Budget entries are per class+semester+year. Allocated = sum of all `Semester Total` entries for that class+year. Spent = sum of all Restock Log `Total Cost` entries for that class+year. Classes without a `Course Fee Per Student > 0` display spending only (no allocated/remaining balance). Dashboard shows compact per-class remaining balance.
 - **Low stock alert:** Dashboard and Reports flag items where `Quantity ≤ Reorder Threshold`.
-- **Calibration alert:** Dashboard and Reports flag hardware where `Needs Calibration = Yes` and `Next Calibration` is within 14 days or overdue.
+- **Maintenance tasks:** Each hardware device can have up to ~6 named tasks (e.g. "Belt Lubrication") with a frequency (Monthly / Every 3 Months / Every 6 Months / Annually / custom "Every N Days|Weeks|Months|Years"). Dashboard and Reports flag tasks due within 14 days or overdue. Stored in `Maintenance Tasks` tab keyed by `Hardware ID`.
+- **Mark complete:** `completeMaintTask()` logs to Maintenance Log and auto-advances `Next Due` via `advanceDate()`. Optionally decrements a consumable via `decrementConsumable()` — same auto-create logic as Daily Log.
+- **`decrementConsumable(name, cls, qty)`:** Shared Code.gs helper used by both `addLogEntry` and `completeMaintTask`. Finds the matching Name+Class row in Consumables and subtracts qty; auto-creates row with negative qty if not found.
 - **Date handling:** Apps Script converts Google Sheets `Date` objects to `yyyy-MM-dd` strings (via `Utilities.formatDate`) so HTML `<input type="date">` fields work directly.
 - **CORS:** Apps Script Web Apps handle CORS automatically when deployed as "Anyone". POST requests use no `Content-Type` header to avoid preflight.
 
@@ -91,7 +97,7 @@ apiPost({ action: 'restockConsumable', id: 'ABC123', qty: 50 })
 apiPost({ action: 'clearConsumables' })
 ```
 
-Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | deleteVendor | addStaff | deleteStaff | addClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry`
+Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | deleteVendor | addStaff | deleteStaff | addClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry | getMaintTasks | getMaintLog | addMaintTask | updateMaintTask | deleteMaintTask | completeMaintTask | deleteMaintLog`
 
 ## Shared Utilities in api.js
 
@@ -135,7 +141,7 @@ Note: `backdrop-filter` is intentionally absent from `.modal-overlay` — it cre
 
 ## Build & Deployment
 
-Run `bash build.sh` from the repo root to populate `deploy/` with the 10 files needed for eQuella (HTML, CSS, JS, and `lab-banner.jpg`). The `deploy/` folder is gitignored.
+Run `bash build.sh` from the repo root to populate `deploy/` with the 10 files needed for eQuella (HTML, CSS, JS, and `lab-banner.jpg`). The `deploy/` folder is gitignored. After updating `Code.gs`, paste into Apps Script and deploy a new version — the Web App URL stays the same.
 
 Full deployment steps:
 1. Create a Google Sheet → Extensions → Apps Script → paste `Code.gs`

@@ -141,17 +141,17 @@
       </div>
     </div>
 
-    <!-- Report 3: Calibration Status -->
+    <!-- Report 3: Maintenance Status -->
     <div class="report-section anim d5">
       <div class="report-section-title">
-        🔧 Calibration Status
-        <span class="pill pill-amber" id="cal-badge" style="font-size:.62rem;">0 items</span>
+        🔧 Maintenance Status
+        <span class="pill pill-amber" id="cal-badge" style="font-size:.62rem;">0 tasks</span>
       </div>
       <div class="table-wrap">
         <div class="table-header">
           <div>
-            <div class="table-title">Hardware Calibration & Service</div>
-            <div class="table-sub">All equipment requiring calibration</div>
+            <div class="table-title">Hardware Maintenance Schedule</div>
+            <div class="table-sub">All maintenance tasks sorted by urgency</div>
           </div>
           <button class="btn btn-ghost btn-sm no-print" onclick="exportCal()">Export CSV</button>
         </div>
@@ -160,16 +160,15 @@
             <thead>
               <tr>
                 <th>Equipment</th>
-                <th>Vendor</th>
-                <th>Last Calibration</th>
-                <th>Next Calibration</th>
-                <th>Cal. Status</th>
-                <th>Next Service</th>
-                <th>Service Status</th>
+                <th>Task</th>
+                <th>Frequency</th>
+                <th>Supplies Needed</th>
+                <th>Next Due</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody id="cal-tbody">
-              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+              <tr><td colspan="6"><div class="empty-state"><div class="spinner"></div></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -228,24 +227,24 @@
     startClock();
     document.getElementById('gen-time').textContent = new Date().toLocaleString();
 
-    let allLog      = [];
-    let allCons     = [];
-    let allHardware = [];
-    let classes     = [];
+    let allLog       = [];
+    let allCons      = [];
+    let allMaintTasks = [];
+    let classes      = [];
     let semesterData = [];
 
     async function load() {
       try {
-        const [logData, cons, hw, cls] = await Promise.all([
+        const [logData, cons, tasks, cls] = await Promise.all([
           apiGet('getDailyLog'),
           apiGet('getConsumables'),
-          apiGet('getHardware'),
+          apiGet('getMaintTasks'),
           apiGet('getClasses')
         ]);
-        allLog      = logData || [];
-        allCons     = cons    || [];
-        allHardware = hw      || [];
-        classes     = cls     || [];
+        allLog        = logData || [];
+        allCons       = cons    || [];
+        allMaintTasks = tasks   || [];
+        classes       = cls     || [];
         populateClassFilter();
         runReports();
       } catch (e) { /* toast shown */ }
@@ -275,7 +274,7 @@
       document.getElementById('gen-time').textContent = new Date().toLocaleString();
       renderUsageReport();
       renderReorderReport();
-      renderCalReport();
+      renderMaintReport();
       renderSemesterReport();
     }
 
@@ -353,32 +352,35 @@
       }).join('');
     }
 
-    // ── Calibration Report ──
+    // ── Maintenance Report ──
     let calData = [];
-    function renderCalReport() {
-      calData = allHardware.filter(h => h['Needs Calibration'] && h['Needs Calibration'] !== 'No');
-      calData.sort((a, b) => {
-        const da = daysUntil(a['Next Calibration']) ?? 9999;
-        const db = daysUntil(b['Next Calibration']) ?? 9999;
+    function renderMaintReport() {
+      calData = [...allMaintTasks].sort((a, b) => {
+        const da = daysUntil(a['Next Due']) ?? 9999;
+        const db = daysUntil(b['Next Due']) ?? 9999;
         return da - db;
       });
-      document.getElementById('cal-badge').textContent = calData.length + ' items';
+      document.getElementById('cal-badge').textContent = calData.length + ' tasks';
       const tbody = document.getElementById('cal-tbody');
       if (calData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No equipment with calibration requirements.</div></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No maintenance tasks configured. Add tasks from the Hardware page.</div></div></td></tr>';
         return;
       }
-      tbody.innerHTML = calData.map(h => {
-        const calD = daysUntil(h['Next Calibration']);
-        const rowCls = calD !== null && calD < 0 ? 'row-overdue' : calD !== null && calD <= 14 ? 'row-soon' : '';
+      tbody.innerHTML = calData.map(t => {
+        const d      = daysUntil(t['Next Due']);
+        const rowCls = d !== null && d < 0 ? 'row-overdue' : d !== null && d <= 14 ? 'row-soon' : '';
+        const pill   = !t['Next Due'] ? '<span class="pill pill-amber">Not set</span>'
+                     : d < 0         ? `<span class="pill pill-rose">⚠ ${Math.abs(d)}d overdue</span>`
+                     : d === 0       ? '<span class="pill pill-rose">Due today</span>'
+                     : d <= 14       ? `<span class="pill pill-amber">Due in ${d}d</span>`
+                     :                 '<span class="pill pill-green">OK</span>';
         return `<tr class="${rowCls}">
-          <td style="font-weight:500;color:var(--text-1);">${esc(h['Name'])}</td>
-          <td>${esc(h['Vendor'] || '—')}</td>
-          <td style="color:var(--text-3);">${fmtDate(h['Last Calibration'])}</td>
-          <td style="white-space:nowrap;">${fmtDate(h['Next Calibration'])}</td>
-          <td>${calPill(h['Next Calibration'], true)}</td>
-          <td style="white-space:nowrap;">${fmtDate(h['Next Service'])}</td>
-          <td>${servicePill(h['Next Service'])}</td>
+          <td style="font-weight:500;color:var(--text-1);">${esc(t['Hardware Name'])}</td>
+          <td>${esc(t['Task Name'])}</td>
+          <td><span class="pill pill-blue" style="font-size:.62rem;">${esc(t['Frequency'])}</span></td>
+          <td style="font-size:.78rem;color:var(--text-3);">${esc(t['Supplies Needed'] || '—')}</td>
+          <td style="white-space:nowrap;color:var(--text-3);">${t['Next Due'] ? fmtDate(t['Next Due']) : '—'}</td>
+          <td>${pill}</td>
         </tr>`;
       }).join('');
     }
@@ -464,11 +466,11 @@
       })), 'reorder-report-' + today() + '.csv');
     }
     function exportCal() {
-      downloadCSV(calData.map(h => ({
-        'Name': h['Name'], 'Vendor': h['Vendor'],
-        'Last Calibration': h['Last Calibration'], 'Next Calibration': h['Next Calibration'],
-        'Last Service': h['Last Service'], 'Next Service': h['Next Service']
-      })), 'calibration-report-' + today() + '.csv');
+      downloadCSV(calData.map(t => ({
+        'Equipment': t['Hardware Name'], 'Task': t['Task Name'],
+        'Frequency': t['Frequency'], 'Supplies Needed': t['Supplies Needed'],
+        'Next Due': t['Next Due']
+      })), 'maintenance-report-' + today() + '.csv');
     }
     function exportSemester() {
       downloadCSV(semesterData.map(r => ({
