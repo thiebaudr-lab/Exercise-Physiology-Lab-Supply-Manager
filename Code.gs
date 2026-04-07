@@ -26,7 +26,8 @@ var TABS = {
   budget      : 'Budget',
   restockLog  : 'Restock Log',
   maintTasks  : 'Maintenance Tasks',
-  maintLog    : 'Maintenance Log'
+  maintLog    : 'Maintenance Log',
+  batches     : 'Batches'
 };
 
 // ── Routers ──────────────────────────────────────────────────
@@ -47,6 +48,7 @@ function doGet(e) {
       case 'getRestockLog'  : result = getRows(TABS.restockLog);  break;
       case 'getMaintTasks'  : result = getRows(TABS.maintTasks);  break;
       case 'getMaintLog'    : result = getRows(TABS.maintLog);    break;
+      case 'getBatches'     : result = getBatchesForItem(e.parameter.name, e.parameter.class); break;
       case 'getAll'         : result = getAll();                  break;
       default               : result = { error: 'Unknown action: ' + action };
     }
@@ -67,7 +69,11 @@ function doPost(e) {
       case 'addConsumable'     : result = addRow(TABS.consumables, data.row);                                          break;
       case 'updateConsumable'  : result = updateRow(TABS.consumables, data.id, data.row);                             break;
       case 'deleteConsumable'  : result = deleteRow(TABS.consumables, data.id);                                       break;
-      case 'restockConsumable' : result = restockConsumable(data.id, data.qty, data.invoiceAmount, data.shippingTax, data.notes); break;
+      case 'restockConsumable' : result = restockConsumable(data.id, data.qty, data.invoiceAmount, data.shippingTax, data.notes, data.expirationDate); break;
+      case 'addBatch'          : result = addBatch(data.row);                                                             break;
+      case 'deleteBatch'       : result = deleteBatch(data.id);                                                           break;
+      case 'markOrdered'       : result = markOrdered(data.id, data.status);                                          break;
+      case 'mergeConsumables'  : result = mergeConsumables(data.sourceId, data.targetId);                            break;
       case 'clearConsumables'  : result = clearConsumables();                                                         break;
       case 'addHardware'       : result = addRow(TABS.hardware, data.row);                                            break;
       case 'updateHardware'    : result = updateRow(TABS.hardware, data.id, data.row);                                break;
@@ -76,10 +82,13 @@ function doPost(e) {
       case 'updateLogEntry'    : result = updateRow(TABS.log, data.id, data.row);                                     break;
       case 'deleteLogEntry'    : result = deleteRow(TABS.log, data.id);                                               break;
       case 'addVendor'         : result = addRow(TABS.vendors, data.row);                                             break;
+      case 'updateVendor'      : result = renameVendor(data.id, data.row);                                            break;
       case 'deleteVendor'      : result = deleteRow(TABS.vendors, data.id);                                           break;
       case 'addStaff'          : result = addRow(TABS.staff, data.row);                                               break;
+      case 'updateStaff'       : result = renameStaff(data.id, data.row['Name']);                                     break;
       case 'deleteStaff'       : result = deleteRow(TABS.staff, data.id);                                             break;
       case 'addClass'          : result = addRow(TABS.classes, data.row);                                             break;
+      case 'updateClass'       : result = renameClass(data.id, data.row['Name']);                                     break;
       case 'deleteClass'       : result = deleteRow(TABS.classes, data.id);                                           break;
       case 'addItem'           : result = addRow(TABS.items, data.row);                                               break;
       case 'deleteItem'        : result = deleteRow(TABS.items, data.id);                                             break;
@@ -91,6 +100,7 @@ function doPost(e) {
       case 'deleteMaintTask'   : result = deleteRow(TABS.maintTasks, data.id);                                        break;
       case 'completeMaintTask' : result = completeMaintTask(data.taskId, data.log);                                   break;
       case 'deleteMaintLog'    : result = deleteRow(TABS.maintLog, data.id);                                          break;
+      case 'processPhotoLog'   : result = processPhotoLog(data.imageBase64, data.mimeType);                          break;
       default                  : result = { error: 'Unknown action: ' + data.action };
     }
   } catch (err) {
@@ -234,29 +244,38 @@ function addLogEntry(rowData) {
   return result;
 }
 
-// Add qty to existing consumable stock and log the cost to Restock Log
-function restockConsumable(id, qty, invoiceAmount, shippingTax, notes) {
-  var sheet = getSheet(TABS.consumables);
-  var data  = sheet.getDataRange().getValues();
-  var hdrs  = data[0];
-  var idIdx = hdrs.indexOf('ID');
-  var qtyI  = hdrs.indexOf('Quantity');
-  var nameI = hdrs.indexOf('Name');
-  var clsI  = hdrs.indexOf('Class');
+// Set or clear the Order Status flag on a consumable
+function markOrdered(id, status) {
+  return updateRow(TABS.consumables, id, { 'Order Status': status || 'Ordered' });
+}
+
+// Add qty to existing consumable stock, log to Restock Log, and optionally create a batch
+function restockConsumable(id, qty, invoiceAmount, shippingTax, notes, expirationDate) {
+  var sheet  = getSheet(TABS.consumables);
+  var data   = sheet.getDataRange().getValues();
+  var hdrs   = data[0];
+  var idIdx  = hdrs.indexOf('ID');
+  var qtyI   = hdrs.indexOf('Quantity');
+  var nameI  = hdrs.indexOf('Name');
+  var clsI   = hdrs.indexOf('Class');
+  var orderI = hdrs.indexOf('Order Status');
+  var expI   = hdrs.indexOf('Expiration Date');
 
   for (var i = 1; i < data.length; i++) {
     if (String(data[i][idIdx]) === String(id)) {
-      var cur  = Number(data[i][qtyI]) || 0;
-      var name = String(data[i][nameI]);
-      var cls  = String(data[i][clsI]);
+      var cur    = Number(data[i][qtyI]) || 0;
+      var name   = String(data[i][nameI]);
+      var cls    = String(data[i][clsI]);
       var newQty = cur + Number(qty);
       sheet.getRange(i + 1, qtyI + 1).setValue(newQty);
+      if (orderI >= 0) sheet.getRange(i + 1, orderI + 1).setValue('');
 
       var inv  = Number(invoiceAmount) || 0;
       var ship = Number(shippingTax)   || 0;
       var tz   = ss.getSpreadsheetTimeZone();
+      var dateStr = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
       addRow(TABS.restockLog, {
-        'Date'          : Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'),
+        'Date'          : dateStr,
         'Item Name'     : name,
         'Class'         : cls,
         'Quantity'      : Number(qty),
@@ -266,10 +285,98 @@ function restockConsumable(id, qty, invoiceAmount, shippingTax, notes) {
         'Notes'         : notes || ''
       });
 
+      if (expirationDate) {
+        addRow(TABS.batches, {
+          'Item Name'      : name,
+          'Class'          : cls,
+          'Quantity'       : Number(qty),
+          'Expiration Date': expirationDate,
+          'Received Date'  : dateStr,
+          'Notes'          : notes || ''
+        });
+        // Update Consumables exp date only if new date is earlier than existing (or none exists).
+        // Consumables row is already in `data` — no need to re-read the sheet.
+        var curExp = expI >= 0 ? String(data[i][expI]) : '';
+        if (expI >= 0 && (!curExp || expirationDate < curExp)) {
+          sheet.getRange(i + 1, expI + 1).setValue(expirationDate);
+        }
+      }
+
       return { success: true, newQty: newQty };
     }
   }
   return { error: 'Row not found: ' + id };
+}
+
+// Fetch all batches for a given item+class
+function getBatchesForItem(name, cls) {
+  var rows = getRows(TABS.batches);
+  return rows.filter(function(b) {
+    return b['Item Name'] === name && b['Class'] === cls;
+  });
+}
+
+// Manually add a batch (without restocking — for recording existing stock at setup)
+function addBatch(rowData) {
+  var result = addRow(TABS.batches, rowData);
+  recomputeExpDate(rowData['Item Name'], rowData['Class']);
+  return result;
+}
+
+// Delete a batch and recompute the consumable's nearest expiration date
+function deleteBatch(id) {
+  var sheet = getSheet(TABS.batches);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var idIdx = hdrs.indexOf('ID');
+  var nameI = hdrs.indexOf('Item Name');
+  var clsI  = hdrs.indexOf('Class');
+  var expI  = hdrs.indexOf('Expiration Date');
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx]) === String(id)) {
+      var name = String(data[i][nameI]);
+      var cls  = String(data[i][clsI]);
+      // Compute remaining dates from already-read data — skip re-reading Batches sheet
+      var remainingDates = [];
+      for (var j = 1; j < data.length; j++) {
+        if (j !== i && String(data[j][nameI]) === name && String(data[j][clsI]) === cls && data[j][expI]) {
+          remainingDates.push(String(data[j][expI]));
+        }
+      }
+      remainingDates.sort();
+      sheet.deleteRow(i + 1);
+      recomputeExpDate(name, cls, remainingDates);
+      return { success: true };
+    }
+  }
+  return { error: 'Batch not found: ' + id };
+}
+
+// Recompute the nearest upcoming expiration date across all batches for an item+class
+// and write it back to the Consumables row so the table and dashboard stay current
+// preSortedDates: optional sorted array of remaining exp dates — avoids re-reading Batches sheet
+function recomputeExpDate(itemName, cls, preSortedDates) {
+  var dates = preSortedDates !== undefined ? preSortedDates :
+    getBatchesForItem(itemName, cls)
+      .map(function(b) { return b['Expiration Date']; })
+      .filter(Boolean)
+      .sort();
+  var nearest = dates.length > 0 ? dates[0] : '';
+
+  var sheet = getSheet(TABS.consumables);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var nameI = hdrs.indexOf('Name');
+  var clsI  = hdrs.indexOf('Class');
+  var expI  = hdrs.indexOf('Expiration Date');
+  if (expI < 0) return;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][nameI]) === String(itemName) && String(data[i][clsI]) === String(cls)) {
+      if (String(data[i][expI]) === String(nearest)) return; // no change — skip write
+      sheet.getRange(i + 1, expI + 1).setValue(nearest);
+      return;
+    }
+  }
 }
 
 // Mark a maintenance task complete: logs the event, optionally decrements a consumable, and auto-advances Next Due
@@ -335,6 +442,167 @@ function advanceDate(fromDate, frequency) {
   }
 }
 
+// Merge sourceId into targetId: add quantities, move batches, delete source row
+function mergeConsumables(sourceId, targetId) {
+  var sheet = getSheet(TABS.consumables);
+  var data  = sheet.getDataRange().getValues();
+  var hdrs  = data[0];
+  var idIdx = hdrs.indexOf('ID');
+  var qtyI  = hdrs.indexOf('Quantity');
+  var nameI = hdrs.indexOf('Name');
+  var clsI  = hdrs.indexOf('Class');
+
+  var srcRow = -1, tgtRow = -1;
+  for (var i = 1; i < data.length; i++) {
+    var rowId = String(data[i][idIdx]);
+    if (rowId === String(sourceId)) srcRow = i;
+    if (rowId === String(targetId)) tgtRow = i;
+  }
+  if (srcRow < 0) return { error: 'Source row not found: ' + sourceId };
+  if (tgtRow < 0) return { error: 'Target row not found: ' + targetId };
+
+  var srcQty  = Number(data[srcRow][qtyI]) || 0;
+  var tgtQty  = Number(data[tgtRow][qtyI]) || 0;
+  var srcName = String(data[srcRow][nameI]);
+  var srcCls  = String(data[srcRow][clsI]);
+  var tgtName = String(data[tgtRow][nameI]);
+  var tgtCls  = String(data[tgtRow][clsI]);
+
+  // Update target quantity
+  sheet.getRange(tgtRow + 1, qtyI + 1).setValue(srcQty + tgtQty);
+
+  // Re-assign any batch records from source to target
+  var bSheet = getSheet(TABS.batches);
+  var bData  = bSheet.getDataRange().getValues();
+  var bHdrs  = bData[0];
+  var bNameI = bHdrs.indexOf('Item Name');
+  var bClsI  = bHdrs.indexOf('Class');
+  for (var j = 1; j < bData.length; j++) {
+    if (String(bData[j][bNameI]) === srcName && String(bData[j][bClsI]) === srcCls) {
+      bSheet.getRange(j + 1, bNameI + 1).setValue(tgtName);
+      bSheet.getRange(j + 1, bClsI  + 1).setValue(tgtCls);
+    }
+  }
+
+  // Delete the source row (re-read to get accurate row index after no structural changes above)
+  sheet.deleteRow(srcRow + 1);
+
+  // Recompute expiration date on target
+  recomputeExpDate(tgtName, tgtCls);
+
+  return { success: true };
+}
+
+// Rename a class and cascade the new name to all tabs that store class names
+function renameClass(id, newName) {
+  var oldName = '';
+  var rows = getRows(TABS.classes);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i]['ID']) === String(id)) { oldName = rows[i]['Name']; break; }
+  }
+  if (!oldName) return { error: 'Class not found: ' + id };
+  if (oldName === newName) return { success: true };
+
+  var result = updateRow(TABS.classes, id, { 'Name': newName });
+  if (result.error) return result;
+
+  // Cascade to all tabs with a 'Class' column
+  var cascadeTabs = [
+    { tab: TABS.consumables, col: 'Class' },
+    { tab: TABS.log,         col: 'Class' },
+    { tab: TABS.restockLog,  col: 'Class' },
+    { tab: TABS.budget,      col: 'Class' },
+    { tab: TABS.batches,     col: 'Class' }
+  ];
+  cascadeTabs.forEach(function(t) {
+    var sheet = ss.getSheetByName(t.tab);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var colI  = hdrs.indexOf(t.col);
+    if (colI < 0) return;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][colI]) === oldName) {
+        sheet.getRange(r + 1, colI + 1).setValue(newName);
+      }
+    }
+  });
+
+  return { success: true };
+}
+
+// Rename a staff member and cascade to log entries
+function renameStaff(id, newName) {
+  var oldName = '';
+  var rows = getRows(TABS.staff);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i]['ID']) === String(id)) { oldName = rows[i]['Name']; break; }
+  }
+  if (!oldName) return { error: 'Staff not found: ' + id };
+  if (oldName === newName) return { success: true };
+
+  var result = updateRow(TABS.staff, id, { 'Name': newName });
+  if (result.error) return result;
+
+  // Cascade to Daily Log 'Used By' and Maintenance Log 'Completed By'
+  var cascadeTabs = [
+    { tab: TABS.log,      col: 'Used By' },
+    { tab: TABS.maintLog, col: 'Completed By' }
+  ];
+  cascadeTabs.forEach(function(t) {
+    var sheet = ss.getSheetByName(t.tab);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var data  = sheet.getDataRange().getValues();
+    var hdrs  = data[0];
+    var colI  = hdrs.indexOf(t.col);
+    if (colI < 0) return;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][colI]) === oldName) {
+        sheet.getRange(r + 1, colI + 1).setValue(newName);
+      }
+    }
+  });
+
+  return { success: true };
+}
+
+// Update vendor contact info; if name changed, cascade to Consumables and Hardware
+function renameVendor(id, rowData) {
+  var newName = rowData['Name'];
+  var oldName = '';
+
+  if (newName !== undefined) {
+    var rows = getRows(TABS.vendors);
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i]['ID']) === String(id)) { oldName = rows[i]['Name']; break; }
+    }
+    if (!oldName) return { error: 'Vendor not found: ' + id };
+  }
+
+  var result = updateRow(TABS.vendors, id, rowData);
+  if (result.error) return result;
+
+  // Cascade name change to Consumables and Hardware 'Vendor' column
+  if (newName !== undefined && oldName && oldName !== newName) {
+    var cascadeTabs = [TABS.consumables, TABS.hardware];
+    cascadeTabs.forEach(function(tabName) {
+      var sheet = ss.getSheetByName(tabName);
+      if (!sheet || sheet.getLastRow() < 2) return;
+      var data  = sheet.getDataRange().getValues();
+      var hdrs  = data[0];
+      var colI  = hdrs.indexOf('Vendor');
+      if (colI < 0) return;
+      for (var r = 1; r < data.length; r++) {
+        if (String(data[r][colI]) === oldName) {
+          sheet.getRange(r + 1, colI + 1).setValue(newName);
+        }
+      }
+    });
+  }
+
+  return { success: true };
+}
+
 // Wipe all consumable rows (keeps header row)
 function clearConsumables() {
   var sheet = getSheet(TABS.consumables);
@@ -344,13 +612,75 @@ function clearConsumables() {
   return { success: true };
 }
 
+// Parse a handwritten log sheet photo using Gemini 1.5 Flash.
+// Requires GEMINI_API_KEY in Script Properties:
+//   Apps Script editor → Project Settings (gear) → Script Properties → Add property
+//   Key: GEMINI_API_KEY  Value: your key from aistudio.google.com
+function processPhotoLog(imageBase64, mimeType) {
+  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not set. Go to Apps Script → Project Settings → Script Properties and add your key from aistudio.google.com.');
+  }
+
+  var year   = new Date().getFullYear();
+  var prompt = 'This is a handwritten lab supply usage log sheet from an exercise physiology laboratory.\n' +
+    'The columns are: Item, Qty, Class, Date, Initials, Notes (Notes may be absent).\n\n' +
+    'Extract every data row as a JSON array. Each object must have:\n' +
+    '- "item": the supply name exactly as written (string)\n' +
+    '- "qty": quantity as a whole number (use 1 if blank or unclear)\n' +
+    '- "class": the class or course as written (string, e.g. "ESS 375L")\n' +
+    '- "date": date in YYYY-MM-DD format (assume year ' + year + ' if only month/day is written)\n' +
+    '- "initials": the person\'s initials or name as written (string)\n' +
+    '- "notes": notes column content (empty string if none)\n\n' +
+    'Skip header rows and completely blank rows.\n' +
+    'Return ONLY the JSON array. No markdown, no code fences, no explanation.';
+
+  var payload = {
+    contents: [{ parts: [
+      { inlineData: { mimeType: mimeType || 'image/jpeg', data: imageBase64 } },
+      { text: prompt }
+    ]}],
+    generationConfig: { temperature: 0.1 }
+  };
+
+  var response = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
+    { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true }
+  );
+
+  if (response.getResponseCode() !== 200) {
+    var body = response.getContentText();
+    throw new Error('Gemini API error ' + response.getResponseCode() + ': ' + body.substring(0, 300));
+  }
+
+  var raw = JSON.parse(response.getContentText());
+  var text = (raw.candidates && raw.candidates[0] && raw.candidates[0].content &&
+              raw.candidates[0].content.parts && raw.candidates[0].content.parts[0].text) || '';
+  text = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+
+  try {
+    var entries = JSON.parse(text);
+    if (!Array.isArray(entries)) throw new Error('Not an array');
+    return { entries: entries };
+  } catch (e) {
+    throw new Error('Could not parse Gemini response. Raw text: ' + text.substring(0, 400));
+  }
+}
+
+// Called by a time-based trigger every 5 minutes to prevent Apps Script cold starts.
+// Setup: Apps Script editor → Triggers (clock icon) → Add Trigger
+//   Function: keepWarm | Event source: Time-driven | Type: Minutes timer | Every 5 minutes
+function keepWarm() {
+  return { ok: true, ts: new Date().toISOString() };
+}
+
 // ── One-time Setup ───────────────────────────────────────────
 
 function initializeSheets() {
   var defs = [
     {
       name: TABS.consumables,
-      headers: ['ID', 'Name', 'Class', 'Vendor', 'Unit', 'Units Per Pack', 'Cost Per Unit', 'Quantity', 'Reorder Threshold', 'Notes']
+      headers: ['ID', 'Name', 'Class', 'Vendor', 'Unit', 'Units Per Pack', 'Cost Per Unit', 'Quantity', 'Reorder Threshold', 'Expiration Date', 'Order Status', 'Notes']
     },
     {
       name: TABS.hardware,
@@ -360,7 +690,7 @@ function initializeSheets() {
       name: TABS.log,
       headers: ['ID', 'Date', 'Item Name', 'Item Type', 'Quantity Used', 'Class', 'Used By', 'Notes']
     },
-    { name: TABS.vendors,    headers: ['ID', 'Name'] },
+    { name: TABS.vendors,    headers: ['ID', 'Name', 'Phone', 'Email', 'Website'] },
     { name: TABS.staff,      headers: ['ID', 'Name'] },
     { name: TABS.classes,    headers: ['ID', 'Name'] },
     { name: TABS.items,      headers: ['ID', 'Name'] },
@@ -379,6 +709,10 @@ function initializeSheets() {
     {
       name: TABS.maintLog,
       headers: ['ID', 'Date', 'Hardware ID', 'Hardware Name', 'Task Name', 'Completed By', 'Supplies Used', 'Notes']
+    },
+    {
+      name: TABS.batches,
+      headers: ['ID', 'Item Name', 'Class', 'Quantity', 'Expiration Date', 'Received Date', 'Notes']
     }
   ];
 

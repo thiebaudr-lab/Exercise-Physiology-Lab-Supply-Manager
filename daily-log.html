@@ -48,6 +48,83 @@
       <p class="page-subtitle">Record supply usage and equipment sessions. Consumable quantities are automatically decremented.</p>
     </div>
 
+    <!-- CSV Import Panel -->
+    <div class="glass anim d2" style="padding:24px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleCsvPanel()">
+        <div>
+          <div style="font-family:var(--font-display);font-weight:600;font-size:1rem;color:var(--text-1);">📂 Bulk Import from CSV</div>
+          <div style="font-size:.72rem;color:var(--text-3);margin-top:2px;">Upload a spreadsheet of log entries — review and confirm before importing</div>
+        </div>
+        <span id="csv-chevron" style="font-size:.9rem;color:var(--text-3);transition:transform .25s;">▶</span>
+      </div>
+
+      <div id="csv-panel-body" style="display:none;margin-top:20px;">
+
+        <!-- Format instructions -->
+        <div style="background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.2);border-radius:10px;padding:16px;margin-bottom:18px;">
+          <div style="font-size:.8rem;font-weight:600;color:var(--blue);margin-bottom:10px;">Required CSV Format</div>
+          <div style="font-size:.75rem;color:var(--text-2);margin-bottom:8px;">Your CSV must have these columns in the header row (order does not matter, names must match exactly):</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-bottom:12px;">
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Item <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">Supply name</div>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Quantity <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">Whole number</div>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Class <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">e.g. ESS 375L Ex Phys Lab</div>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Date <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">MM/DD/YYYY or YYYY-MM-DD</div>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Initials <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">Person's initials or name</div>
+            </div>
+            <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-3);">Notes <span style="font-size:.62rem;font-weight:400;color:var(--text-3);">optional</span></div>
+              <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">Any additional notes</div>
+            </div>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-3);">
+            <strong style="color:var(--text-2);">Tip:</strong> Download the template below, fill it in, and save as CSV from Excel or Google Sheets.
+            Class names and staff names don't need to match exactly — you can correct them in the review step.
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" onclick="downloadTemplate()">⬇ Download Template</button>
+          <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none;" onchange="onCsvSelected()" />
+          <button class="btn btn-primary" onclick="document.getElementById('csv-file').click()">Upload CSV</button>
+          <span id="csv-status" style="font-size:.78rem;color:var(--text-3);"></span>
+        </div>
+
+        <!-- Preview table -->
+        <div id="import-preview" style="display:none;margin-top:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:.88rem;font-weight:600;color:var(--text-1);">Review Entries</div>
+              <div style="font-size:.72rem;color:var(--text-3);margin-top:2px;">Edit any row before importing. Click ✕ to remove a row.</div>
+            </div>
+            <button id="import-btn" class="btn btn-primary" onclick="importAll()">Import All</button>
+          </div>
+          <div class="table-scroll">
+            <table class="ltable" style="font-size:.82rem;">
+              <thead>
+                <tr><th>Date</th><th>Item</th><th>Qty</th><th>Class</th><th>Used By</th><th>Notes</th><th></th></tr>
+              </thead>
+              <tbody id="import-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Log Entry Form -->
     <div class="glass anim d2" style="padding:24px;margin-bottom:24px;" id="entry-form-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
@@ -343,6 +420,246 @@
 
     function exportCSV() {
       downloadCSV(allLog, 'daily-log-' + today() + '.csv');
+    }
+
+    // ── CSV Import ────────────────────────────────────────────
+
+    let importRows = [];
+
+    function toggleCsvPanel() {
+      const body    = document.getElementById('csv-panel-body');
+      const chevron = document.getElementById('csv-chevron');
+      const open    = body.style.display === 'none';
+      body.style.display      = open ? 'block' : 'none';
+      chevron.style.transform = open ? 'rotate(90deg)' : '';
+    }
+
+    function downloadTemplate() {
+      const csv = 'Item,Quantity,Class,Date,Initials,Notes\n' +
+        'Alcohol Wipes,10,ESS 375L Ex Phys Lab,04/07/2026,RT,\n' +
+        'Lactate Strips,3,ESS 375L Ex Phys Lab,04/07/2026,RT,Calibration run\n';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'daily-log-template.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function onCsvSelected() {
+      const file = document.getElementById('csv-file').files[0];
+      if (!file) return;
+      document.getElementById('csv-status').textContent = 'Reading…';
+      document.getElementById('import-preview').style.display = 'none';
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const entries = parseCsvToEntries(e.target.result);
+          if (entries.length === 0) {
+            document.getElementById('csv-status').textContent = 'No data rows found. Check the file has a header row and data rows.';
+            return;
+          }
+          document.getElementById('csv-status').textContent = entries.length + ' rows found — review below.';
+          buildPreviewTable(entries);
+        } catch (err) {
+          document.getElementById('csv-status').textContent = 'Error: ' + err.message;
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function parseCsvToEntries(text) {
+      text = text.replace(/^\uFEFF/, ''); // strip BOM
+      const rows = parseCSV(text);
+      if (rows.length < 2) throw new Error('File must have a header row and at least one data row.');
+
+      const hdrs = rows[0].map(h => h.trim().toLowerCase());
+      const col  = name => hdrs.indexOf(name);
+      const iDate = col('date'), iItem = col('item'), iQty = col('quantity');
+      const iCls  = col('class'), iInit = col('initials'), iNote = col('notes');
+
+      if (iDate < 0 || iItem < 0 || iQty < 0 || iCls < 0 || iInit < 0) {
+        throw new Error('Missing required columns. Need: Item, Quantity, Class, Date, Initials.');
+      }
+
+      return rows.slice(1)
+        .filter(r => r.some(f => f.trim()))   // skip blank rows
+        .map((r, i) => ({
+          _id     : i,
+          date    : parseDate(r[iDate] || ''),
+          item    : (r[iItem] || '').trim(),
+          qty     : Math.max(1, parseInt(r[iQty], 10) || 1),
+          class   : (r[iCls]  || '').trim(),
+          initials: (r[iInit] || '').trim(),
+          notes   : iNote >= 0 ? (r[iNote] || '').trim() : ''
+        }));
+    }
+
+    function parseCSV(text) {
+      const rows = [];
+      const lines = text.split(/\r?\n/);
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        const fields = [];
+        let field = '', inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (inQuotes) {
+            if (ch === '"' && line[i + 1] === '"') { field += '"'; i++; }
+            else if (ch === '"') inQuotes = false;
+            else field += ch;
+          } else {
+            if (ch === '"') inQuotes = true;
+            else if (ch === ',') { fields.push(field); field = ''; }
+            else field += ch;
+          }
+        }
+        fields.push(field);
+        rows.push(fields);
+      }
+      return rows;
+    }
+
+    function parseDate(str) {
+      str = str.trim();
+      if (!str) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+      const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (m) {
+        const yr = m[3].length === 2 ? '20' + m[3] : m[3];
+        return yr + '-' + m[1].padStart(2, '0') + '-' + m[2].padStart(2, '0');
+      }
+      return ''; // unrecognized format — leave blank so user corrects it in the review table
+    }
+
+    function matchInitials(initials) {
+      if (!initials) return '';
+      const init = initials.trim().toUpperCase();
+      const exact = staff.find(s => s['Name'].toUpperCase() === init);
+      if (exact) return exact['Name'];
+      const byInit = staff.find(s => {
+        const parts = s['Name'].trim().split(/\s+/);
+        return parts.map(p => p[0].toUpperCase()).join('') === init;
+      });
+      return byInit ? byInit['Name'] : '';
+    }
+
+    function matchClass(raw) {
+      if (!raw) return '';
+      const r = raw.toLowerCase();
+      const found = classes.find(c => c['Name'].toLowerCase() === r) ||
+                    classes.find(c => c['Name'].toLowerCase().includes(r) || r.includes(c['Name'].toLowerCase()));
+      return found ? found['Name'] : raw;
+    }
+
+    function buildPreviewTable(entries) {
+      importRows = entries;
+      renderPreviewTable();
+      document.getElementById('import-preview').style.display = 'block';
+    }
+
+    function renderPreviewTable() {
+      const classOpts = classes.map(c => `<option value="${esc(c['Name'])}">${esc(c['Name'])}</option>`).join('');
+      const staffOpts = staff.map(s => `<option value="${esc(s['Name'])}">${esc(s['Name'])}</option>`).join('');
+
+      document.getElementById('import-tbody').innerHTML = importRows.map(r => `
+        <tr data-id="${r._id}">
+          <td><input type="date" class="form-input" style="font-size:.78rem;padding:4px 8px;" value="${esc(r.date)}" onchange="updateImportRow(${r._id},'date',this.value)" /></td>
+          <td><input type="text" class="form-input" style="font-size:.78rem;padding:4px 8px;min-width:120px;" value="${esc(r.item)}" onchange="updateImportRow(${r._id},'item',this.value)" /></td>
+          <td><input type="number" class="form-input" style="font-size:.78rem;padding:4px 8px;width:60px;" value="${esc(r.qty)}" min="1" onchange="updateImportRow(${r._id},'qty',this.value)" /></td>
+          <td><select class="form-input" style="font-size:.78rem;padding:4px 8px;" onchange="updateImportRow(${r._id},'class',this.value)">
+            <option value="">Select…</option>${classOpts}
+          </select></td>
+          <td><select class="form-input" style="font-size:.78rem;padding:4px 8px;" onchange="updateImportRow(${r._id},'usedBy',this.value)">
+            <option value="">Select…</option>${staffOpts}
+          </select></td>
+          <td><input type="text" class="form-input" style="font-size:.78rem;padding:4px 8px;min-width:100px;" value="${esc(r.notes)}" onchange="updateImportRow(${r._id},'notes',this.value)" /></td>
+          <td><button class="btn btn-danger btn-sm" onclick="removeImportRow(${r._id})">✕</button></td>
+        </tr>`).join('');
+
+      // Auto-select matched class and staff after rendering
+      importRows.forEach(r => {
+        const tr = document.querySelector(`#import-tbody tr[data-id="${r._id}"]`);
+        if (!tr) return;
+        const sels = tr.querySelectorAll('select');
+        const mc = matchClass(r.class);
+        const mu = matchInitials(r.initials);
+        if (mc) sels[0].value = mc;
+        if (mu) sels[1].value = mu;
+      });
+
+      document.getElementById('import-btn').textContent =
+        'Import ' + importRows.length + ' Entr' + (importRows.length === 1 ? 'y' : 'ies');
+    }
+
+    function updateImportRow(id, field, value) {
+      const r = importRows.find(r => r._id === id);
+      if (r) r[field] = value;
+    }
+
+    function removeImportRow(id) {
+      importRows = importRows.filter(r => r._id !== id);
+      renderPreviewTable();
+      if (importRows.length === 0) document.getElementById('import-preview').style.display = 'none';
+    }
+
+    async function importAll() {
+      let rows;
+      try {
+        rows = [];
+        document.querySelectorAll('#import-tbody tr[data-id]').forEach(tr => {
+          const inputs  = tr.querySelectorAll('input');
+          const selects = tr.querySelectorAll('select');
+          if (!inputs[0] || !selects[0] || !selects[1]) throw new Error('Unexpected table structure — refresh the preview and try again');
+          rows.push({
+            date  : inputs[0].value,
+            item  : inputs[1].value.trim(),
+            qty   : inputs[2].value,
+            cls   : selects[0].value,
+            usedBy: selects[1].value,
+            notes : inputs[3] ? inputs[3].value.trim() : ''
+          });
+        });
+      } catch (e) {
+        showToast(e.message || 'Could not read preview table', 'error');
+        return;
+      }
+
+      const invalid = rows.filter(r => !r.date || !r.item || !r.qty || !r.cls || !r.usedBy);
+      if (invalid.length > 0) {
+        showToast(invalid.length + ' row(s) missing required fields — check Date, Item, Qty, Class, and Used By', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('import-btn');
+      btn.disabled = true;
+      let imported = 0;
+      try {
+        for (const r of rows) {
+          btn.textContent = 'Importing ' + (imported + 1) + ' of ' + rows.length + '…';
+          await apiPost({ action: 'addLogEntry', row: {
+            'Date'         : r.date,
+            'Item Name'    : r.item,
+            'Item Type'    : 'Consumable',
+            'Quantity Used': r.qty,
+            'Class'        : r.cls,
+            'Used By'      : r.usedBy,
+            'Notes'        : r.notes
+          }});
+          imported++;
+        }
+        showToast(imported + ' entries imported · Inventory updated');
+        importRows = [];
+        document.getElementById('import-preview').style.display = 'none';
+        document.getElementById('csv-file').value = '';
+        document.getElementById('csv-status').textContent = '';
+        await load();
+      } catch (e) {
+        showToast('Stopped after ' + imported + ' — ' + (e.message || 'error'), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Import ' + importRows.length + ' Entr' + (importRows.length === 1 ? 'y' : 'ies');
+      }
     }
 
     load();

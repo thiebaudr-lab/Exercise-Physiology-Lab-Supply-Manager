@@ -295,9 +295,10 @@ textarea.form-input { resize: vertical; min-height: 72px; }
 /* ── Settings ── */
 .settings-section { margin-bottom: 28px; }
 .settings-section-title { font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:14px; }
-.settings-list { list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.settings-list { list-style: none; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: visible; }
 .settings-item { display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.04);background:var(--panel); }
-.settings-item:last-child { border-bottom: none; }
+.settings-item:first-child { border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.settings-item:last-child { border-bottom: none; border-radius: 0 0 var(--radius-sm) var(--radius-sm); }
 .settings-name { font-size:.84rem;color:var(--text-1); }
 .settings-add { display:flex;gap:10px;margin-top:12px; }
 

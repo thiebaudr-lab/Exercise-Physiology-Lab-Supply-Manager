@@ -51,7 +51,7 @@
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;" class="anim d2">
 
       <!-- Staff -->
-      <div class="glass" style="padding:24px;">
+      <div id="staff-card" class="glass" style="padding:24px;overflow:visible;position:relative;">
         <div class="settings-section">
           <div class="settings-section-title">👤 Staff / Lab Personnel</div>
           <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These names appear in the "Used By" dropdown on the Daily Log page.</div>
@@ -66,22 +66,27 @@
       </div>
 
       <!-- Vendors -->
-      <div class="glass" style="padding:24px;">
+      <div id="vendor-card" class="glass" style="padding:24px;overflow:visible;position:relative;">
         <div class="settings-section">
           <div class="settings-section-title">🏪 Vendors / Suppliers</div>
           <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These appear in the Vendor dropdown on Consumables and Hardware pages.</div>
           <ul class="settings-list" id="vendor-list">
             <li class="settings-item"><span class="settings-name"><span class="spinner"></span></span></li>
           </ul>
-          <div class="settings-add">
-            <input id="vendor-input" class="linput" type="text" placeholder="Vendor name…" style="flex:1;" onkeydown="if(event.key==='Enter')addSetting('vendor')" />
-            <button class="btn btn-primary btn-sm" onclick="addSetting('vendor')">Add</button>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+            <input id="vendor-input" class="linput" type="text" placeholder="Vendor name *" style="width:100%;box-sizing:border-box;" />
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <input id="vendor-phone" class="linput" type="text" placeholder="Phone (optional)" />
+              <input id="vendor-email" class="linput" type="email" placeholder="Email (optional)" />
+            </div>
+            <input id="vendor-website" class="linput" type="text" placeholder="Website (optional, e.g. amazon.com)" style="width:100%;box-sizing:border-box;" />
+            <button class="btn btn-primary btn-sm" onclick="addVendor()" style="align-self:flex-start;">Add Vendor</button>
           </div>
         </div>
       </div>
 
       <!-- Classes -->
-      <div class="glass" style="padding:24px;">
+      <div id="class-card" class="glass" style="padding:24px;overflow:visible;position:relative;">
         <div class="settings-section">
           <div class="settings-section-title">📚 Classes</div>
           <div style="font-size:.75rem;color:var(--text-3);margin-bottom:14px;">These appear in the Class dropdown on the Daily Log page and in Reports.</div>
@@ -110,6 +115,33 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Gemini API Key Setup -->
+    <div class="glass anim d3" style="padding:24px;margin-top:20px;">
+      <div style="font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:6px;">📷 Photo Log Import — Gemini API Key</div>
+      <div style="font-size:.75rem;color:var(--text-3);margin-bottom:16px;">
+        Required for the <strong style="color:var(--text-2);">Import from Photo</strong> feature on the Daily Log page.
+        The key is stored inside Apps Script — it is never exposed in the frontend code.
+      </div>
+      <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;">
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">1</span>
+          <div style="font-size:.8rem;color:var(--text-2);">Go to <strong>aistudio.google.com</strong> → sign in with your Google account → click <strong>Get API key</strong> → <strong>Create API key</strong>. Copy the key.</div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">2</span>
+          <div style="font-size:.8rem;color:var(--text-2);">Open your Apps Script project → click the <strong>gear icon</strong> (Project Settings) in the left sidebar → scroll to <strong>Script Properties</strong> → click <strong>Add script property</strong>.</div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">3</span>
+          <div style="font-size:.8rem;color:var(--text-2);">Set <strong>Property</strong> to <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">GEMINI_API_KEY</code> and <strong>Value</strong> to your API key. Click <strong>Save script properties</strong>.</div>
+        </li>
+        <li style="display:flex;gap:14px;align-items:flex-start;">
+          <span style="background:var(--green-soft);color:var(--green);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">4</span>
+          <div style="font-size:.8rem;color:var(--text-2);">No new deployment needed — Script Properties are read at runtime. The free tier allows up to <strong>1,500 photo parses per day</strong>, well beyond lab use.</div>
+        </li>
+      </ol>
     </div>
 
     <!-- API Configuration -->
@@ -173,6 +205,61 @@
     </div>
   </main>
 
+  <!-- Shared edit modal for Staff / Classes -->
+  <div id="setting-edit-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)cancelEditSetting()">
+    <div class="modal-box" style="max-width:400px;">
+      <div class="modal-header">
+        <span class="modal-title" id="setting-edit-title">Edit</span>
+        <button class="modal-close" onclick="cancelEditSetting()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label" id="setting-edit-label">Name *</label>
+          <input id="setting-edit-input" class="form-input" type="text"
+            onkeydown="if(event.key==='Enter')confirmEditSetting();if(event.key==='Escape')cancelEditSetting()" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="cancelEditSetting()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmEditSetting()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shared edit modal for Vendors -->
+  <div id="vendor-edit-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)cancelEditVendor()">
+    <div class="modal-box" style="max-width:440px;">
+      <div class="modal-header">
+        <span class="modal-title">Edit Vendor</span>
+        <button class="modal-close" onclick="cancelEditVendor()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Name *</label>
+          <input id="vmod-name" class="form-input" type="text" />
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group">
+            <label class="form-label">Phone</label>
+            <input id="vmod-phone" class="form-input" type="text" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input id="vmod-email" class="form-input" type="email" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Website</label>
+          <input id="vmod-website" class="form-input" type="text" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="cancelEditVendor()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmEditVendor()">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container"></div>
 
   <script src="api.js"></script>
@@ -203,29 +290,148 @@
     }
 
     const SETTINGS_CFG = {
-      staff:  { list: () => staffList,  inputId: 'staff-input',  addAction: 'addStaff',  deleteAction: 'deleteStaff',  label: 'Staff member',    note: 'Existing log entries are not affected.' },
-      vendor: { list: () => vendorList, inputId: 'vendor-input', addAction: 'addVendor', deleteAction: 'deleteVendor', label: 'Vendor',           note: null },
-      class:  { list: () => classList,  inputId: 'class-input',  addAction: 'addClass',  deleteAction: 'deleteClass',  label: 'Class',            note: 'Existing log entries are not affected.' },
-      item:   { list: () => itemList,   inputId: 'item-input',   addAction: 'addItem',   deleteAction: 'deleteItem',   label: 'Consumable item',  note: null }
+      staff: { list: () => staffList, inputId: 'staff-input', addAction: 'addStaff', updateAction: 'updateStaff', deleteAction: 'deleteStaff', label: 'Staff member', note: 'Existing log entries are not affected.' },
+      class: { list: () => classList, inputId: 'class-input', addAction: 'addClass', updateAction: 'updateClass', deleteAction: 'deleteClass', label: 'Class',        note: 'Existing log entries are not affected.' },
+      item:  { list: () => itemList,  inputId: 'item-input',  addAction: 'addItem',  updateAction: null,          deleteAction: 'deleteItem',  label: 'Consumable item', note: null }
     };
 
+    const editingId = {};  // tracks which item ID is being edited per type
+
     function renderAll() {
+      renderVendorList();
       Object.entries(SETTINGS_CFG).forEach(([type, cfg]) => {
         renderList(type + '-list', cfg.list(), type);
       });
     }
 
+    function renderVendorList() {
+      const ul = document.getElementById('vendor-list');
+      if (vendorList.length === 0) {
+        ul.innerHTML = '<li class="settings-item"><span class="settings-name" style="color:var(--text-3);">None added yet</span></li>';
+        return;
+      }
+      ul.innerHTML = vendorList.map(v => {
+        const contact = [v['Phone'], v['Email'], v['Website']].filter(Boolean).join(' · ');
+        return `<li class="settings-item" style="flex-direction:column;align-items:flex-start;gap:2px;">
+          <div style="display:flex;width:100%;align-items:center;justify-content:space-between;">
+            <span class="settings-name">${esc(v['Name'])}</span>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-ghost btn-sm" onclick="editVendor('${esc(v['ID'])}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteVendor('${esc(v['ID'])}','${esc(v['Name'])}')">Remove</button>
+            </div>
+          </div>
+          ${contact ? `<span style="font-size:.72rem;color:var(--text-3);">${esc(contact)}</span>` : ''}
+        </li>`;
+      }).join('');
+    }
+
+    let _editVendorId = null;
+
+    function editVendor(id) {
+      const v = vendorList.find(x => x['ID'] === id);
+      if (!v) return;
+      _editVendorId = id;
+      document.getElementById('vmod-name').value    = v['Name']    || '';
+      document.getElementById('vmod-phone').value   = v['Phone']   || '';
+      document.getElementById('vmod-email').value   = v['Email']   || '';
+      document.getElementById('vmod-website').value = v['Website'] || '';
+      openModal('vendor-edit-modal');
+      setTimeout(() => document.getElementById('vmod-name').focus(), 50);
+    }
+
+    function cancelEditVendor() {
+      closeModal('vendor-edit-modal');
+      _editVendorId = null;
+    }
+
+    async function confirmEditVendor() {
+      if (!_editVendorId) return;
+      const name    = document.getElementById('vmod-name').value.trim();
+      const phone   = document.getElementById('vmod-phone').value.trim();
+      const email   = document.getElementById('vmod-email').value.trim();
+      const website = document.getElementById('vmod-website').value.trim();
+      if (!name) { showToast('Vendor name cannot be blank', 'error'); return; }
+      const result = await apiPost({ action: 'updateVendor', id: _editVendorId, row: { 'Name': name, 'Phone': phone, 'Email': email, 'Website': website } });
+      if (result && result.error) return;
+      showToast(name + ' updated');
+      closeModal('vendor-edit-modal');
+      _editVendorId = null;
+      await load();
+    }
+
+    async function addVendor() {
+      const name    = document.getElementById('vendor-input').value.trim();
+      const phone   = document.getElementById('vendor-phone').value.trim();
+      const email   = document.getElementById('vendor-email').value.trim();
+      const website = document.getElementById('vendor-website').value.trim();
+      if (!name) { showToast('Enter a vendor name', 'error'); return; }
+      if (vendorList.some(v => v['Name'].toLowerCase() === name.toLowerCase())) {
+        showToast('That vendor already exists', 'warning'); return;
+      }
+      await apiPost({ action: 'addVendor', row: { 'Name': name, 'Phone': phone, 'Email': email, 'Website': website } });
+      showToast('Vendor added');
+      document.getElementById('vendor-input').value  = '';
+      document.getElementById('vendor-phone').value  = '';
+      document.getElementById('vendor-email').value  = '';
+      document.getElementById('vendor-website').value = '';
+      await load();
+    }
+
+    async function deleteVendor(id, name) {
+      if (!confirm('Remove "' + name + '"?')) return;
+      await apiPost({ action: 'deleteVendor', id });
+      showToast('Removed: ' + name);
+      await load();
+    }
+
     function renderList(listId, data, type) {
-      const ul = document.getElementById(listId);
+      const cfg = SETTINGS_CFG[type];
+      const ul  = document.getElementById(listId);
       if (data.length === 0) {
         ul.innerHTML = '<li class="settings-item"><span class="settings-name" style="color:var(--text-3);">None added yet</span></li>';
         return;
       }
-      ul.innerHTML = data.map(item => `
-        <li class="settings-item">
+      ul.innerHTML = data.map(item => {
+        const editBtn = cfg.updateAction
+          ? `<button class="btn btn-ghost btn-sm" onclick="startEditSetting('${type}','${esc(item['ID'])}','${esc(item['Name'])}')">Edit</button>`
+          : '';
+        return `<li class="settings-item">
           <span class="settings-name">${esc(item['Name'])}</span>
-          <button class="btn btn-danger btn-sm" onclick="deleteSetting('${type}','${esc(item['ID'])}','${esc(item['Name'])}')">Remove</button>
-        </li>`).join('');
+          <div style="display:flex;gap:6px;">${editBtn}<button class="btn btn-danger btn-sm" onclick="deleteSetting('${type}','${esc(item['ID'])}','${esc(item['Name'])}')">Remove</button></div>
+        </li>`;
+      }).join('');
+    }
+
+    let _editType = null, _editId = null;
+
+    function startEditSetting(type, id, currentName) {
+      _editType = type;
+      _editId   = id;
+      const cfg = SETTINGS_CFG[type];
+      document.getElementById('setting-edit-title').textContent = 'Edit ' + cfg.label;
+      document.getElementById('setting-edit-label').textContent = cfg.label + ' name *';
+      const inp = document.getElementById('setting-edit-input');
+      inp.value = currentName;
+      openModal('setting-edit-modal');
+      setTimeout(() => { inp.focus(); inp.select(); }, 50);
+    }
+
+    function cancelEditSetting() {
+      closeModal('setting-edit-modal');
+      _editType = null; _editId = null;
+    }
+
+    async function confirmEditSetting() {
+      if (!_editType || !_editId) return;
+      const cfg  = SETTINGS_CFG[_editType];
+      const name = document.getElementById('setting-edit-input').value.trim();
+      if (!name) { showToast('Name cannot be blank', 'error'); return; }
+      const result = await apiPost({ action: cfg.updateAction, id: _editId, row: { 'Name': name } });
+      if (result && result.error) return;
+      showToast(cfg.label + ' updated');
+      closeModal('setting-edit-modal');
+      _editType = null; _editId = null;
+      await load();
     }
 
     async function addSetting(type) {
@@ -247,6 +453,7 @@
       if (!confirm(msg)) return;
       await apiPost({ action: cfg.deleteAction, id });
       showToast('Removed: ' + name);
+      delete editingId[type];
       await load();
     }
 

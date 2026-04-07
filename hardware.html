@@ -359,13 +359,8 @@
     async function load() {
       try {
         const [items, tasks, log, cons, vens, stf, cls] = await Promise.all([
-          apiGet('getHardware'),
-          apiGet('getMaintTasks'),
-          apiGet('getMaintLog'),
-          apiGet('getConsumables'),
-          apiGet('getVendors'),
-          apiGet('getStaff'),
-          apiGet('getClasses')
+          apiGet('getHardware'), apiGet('getMaintTasks'), apiGet('getMaintLog'),
+          apiGet('getConsumables'), apiGet('getVendors'), apiGet('getStaff'), apiGet('getClasses')
         ]);
         allItems    = items || [];
         allTasks    = tasks || [];

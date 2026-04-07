@@ -144,20 +144,22 @@
     startClock();
 
     async function loadDashboard() {
-      let data;
+      let cons, log, budget, restockLog, classes, maintTasks;
       try {
-        data = await apiGet('getAll');
+        [cons, log, budget, restockLog, classes, maintTasks] = await Promise.all([
+          apiGet('getConsumables'), apiGet('getDailyLog'), apiGet('getBudget'),
+          apiGet('getRestockLog'),  apiGet('getClasses'),  apiGet('getMaintTasks')
+        ]);
+        cons       = cons       || [];
+        log        = log        || [];
+        budget     = budget     || [];
+        restockLog = restockLog || [];
+        classes    = classes    || [];
+        maintTasks = maintTasks || [];
       } catch (e) {
         document.getElementById('dash-subtitle').textContent = 'Could not connect to data source. Check API_URL in api.js.';
         return;
       }
-
-      const cons       = data.consumables || [];
-      const log        = data.log         || [];
-      const budget     = data.budget      || [];
-      const restockLog = data.restockLog  || [];
-      const classes    = data.classes     || [];
-      const maintTasks = data.maintTasks  || [];
 
       // ── KPIs ──
       const lowStock = cons.filter(c => {
@@ -166,6 +168,12 @@
         return t > 0 && q <= t;
       });
       const outOfStock = cons.filter(c => (Number(c['Quantity']) || 0) <= 0);
+      const expiring   = cons.filter(c => {
+        if (!c['Expiration Date']) return false;
+        const d = daysUntil(c['Expiration Date']);
+        return d !== null && d <= 30;
+      });
+      const lowStockIds = new Set(lowStock.map(c => c['ID']));
 
       const maintAlerts = maintTasks.filter(t => {
         const d = daysUntil(t['Next Due']);
@@ -179,7 +187,7 @@
       document.getElementById('kpi-log-sub').textContent = todayCount === 1 ? 'entry today · tap to log' : 'entries today · tap to log';
 
       document.getElementById('kpi-low').textContent     = lowStock.length;
-      document.getElementById('kpi-low-sub').textContent = outOfStock.length + ' critical · ' + (lowStock.length - outOfStock.length) + ' warning';
+      document.getElementById('kpi-low-sub').textContent = outOfStock.length + ' critical · ' + (lowStock.length - outOfStock.length) + ' warning · ' + expiring.length + ' expiring';
       document.getElementById('kpi-cal').textContent     = maintAlerts.length;
       document.getElementById('kpi-cal-sub').textContent = maintOverdue.length + ' overdue · ' + (maintAlerts.length - maintOverdue.length) + ' due soon';
 
@@ -189,11 +197,13 @@
 
       // ── Low Stock Alerts Panel ──
       const lsList = document.getElementById('low-stock-list');
-      document.getElementById('low-stock-count').textContent = lowStock.length + ' item' + (lowStock.length !== 1 ? 's' : '') + ' need reorder';
-      if (lowStock.length === 0) {
+      const expiringOnly = expiring.filter(c => !lowStockIds.has(c['ID']));
+      const totalAlerts  = lowStock.length + expiringOnly.length;
+      document.getElementById('low-stock-count').textContent = totalAlerts + ' item' + (totalAlerts !== 1 ? 's' : '') + ' need attention';
+      if (totalAlerts === 0) {
         lsList.innerHTML = '<div class="alert-row"><div class="empty-text" style="padding:8px 0;">All stock levels OK</div></div>';
       } else {
-        lsList.innerHTML = lowStock.slice(0, 8).map(c => {
+        const stockRows = lowStock.slice(0, 6).map(c => {
           const q     = Number(c['Quantity']) || 0;
           const isOut = q <= 0;
           const col   = isOut ? 'var(--rose)' : 'var(--amber)';
@@ -204,7 +214,20 @@
               <div class="alert-detail">${q} remaining · Min: ${esc(c['Reorder Threshold'])} · ${esc(c['Vendor'] || 'No vendor')}</div>
             </div>
           </div>`;
-        }).join('');
+        });
+        const expRows = expiringOnly.slice(0, 3).map(c => {
+          const d   = daysUntil(c['Expiration Date']);
+          const col = d < 0 ? 'var(--rose)' : 'var(--amber)';
+          const lbl = d < 0 ? 'Expired ' + Math.abs(d) + ' days ago' : 'Expires in ' + d + ' day' + (d !== 1 ? 's' : '');
+          return `<div class="alert-row">
+            <div class="alert-dot" style="background:${col};box-shadow:0 0 6px ${col};"></div>
+            <div style="flex:1;min-width:0;">
+              <div class="alert-name">${esc(c['Name'])}</div>
+              <div class="alert-detail">${lbl} · ${esc(c['Class'] || '')} · ${esc(c['Vendor'] || 'No vendor')}</div>
+            </div>
+          </div>`;
+        });
+        lsList.innerHTML = [...stockRows, ...expRows].join('');
       }
 
       // ── Maintenance Alerts Panel ──

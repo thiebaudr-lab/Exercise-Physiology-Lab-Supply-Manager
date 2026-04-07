@@ -96,12 +96,13 @@
               <th>Quantity</th>
               <th>Reorder At</th>
               <th>Cost/Unit</th>
+              <th>Expires</th>
               <th>Status</th>
               <th class="no-print">Actions</th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="8"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+            <tr><td colspan="9"><div class="empty-state"><div class="spinner"></div></div></td></tr>
           </tbody>
         </table>
       </div>
@@ -190,10 +191,15 @@
         <div style="font-size:.88rem;color:var(--text-1);font-weight:500;margin-bottom:4px;" id="restock-name"></div>
         <div style="font-size:.75rem;color:var(--text-3);margin-bottom:18px;" id="restock-class"></div>
         <div class="form-grid">
-          <div class="form-group span2">
+          <div class="form-group">
             <label class="form-label">Quantity Received *</label>
             <input id="restock-qty" class="form-input" type="number" min="1" placeholder="How many units received?" />
             <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">This will be added to the current stock on hand.</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expiration Date</label>
+            <input id="restock-exp" class="form-input" type="date" />
+            <span style="font-size:.7rem;color:var(--text-3);margin-top:4px;">Creates a batch record for this lot.</span>
           </div>
           <div class="form-group">
             <label class="form-label">Invoice Amount ($)</label>
@@ -214,6 +220,68 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeModal('restock-modal')">Cancel</button>
         <button id="restock-btn" class="btn btn-primary" onclick="confirmRestock()">Add to Stock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batches Modal -->
+  <!-- Merge Modal -->
+  <div id="merge-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('merge-modal')">
+    <div class="modal-box" style="max-width:480px;">
+      <div class="modal-header">
+        <span class="modal-title">Merge Duplicate</span>
+        <button class="modal-close" onclick="closeModal('merge-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:.82rem;color:var(--text-2);margin-bottom:16px;">
+          Choose which entry to keep. The quantities will be added together and the duplicate will be deleted.
+        </p>
+        <div style="font-size:.78rem;font-weight:600;color:var(--text-3);margin-bottom:6px;">Merging:</div>
+        <div id="merge-source-label" style="font-size:.88rem;font-weight:500;color:var(--text-1);margin-bottom:16px;"></div>
+        <div class="form-group">
+          <label class="form-label">Merge into (keep this entry) *</label>
+          <select id="merge-target-select" class="form-input"></select>
+        </div>
+        <div id="merge-preview" style="margin-top:12px;font-size:.78rem;color:var(--text-3);"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('merge-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmMerge()">Merge</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="batches-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeModal('batches-modal')">
+    <div class="modal-box" style="max-width:600px;">
+      <div class="modal-header">
+        <span class="modal-title">Expiration Batches</span>
+        <button class="modal-close" onclick="closeModal('batches-modal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="font-size:.88rem;color:var(--text-1);font-weight:500;" id="batches-name"></div>
+        <div style="font-size:.75rem;color:var(--text-3);margin-bottom:16px;" id="batches-class"></div>
+        <div id="batches-list"></div>
+        <div style="border-top:1px solid var(--border);margin-top:16px;padding-top:16px;">
+          <div style="font-size:.78rem;font-weight:600;color:var(--text-2);margin-bottom:10px;">Add Batch Manually</div>
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="form-group">
+              <label class="form-label">Quantity *</label>
+              <input id="batch-qty" class="form-input" type="number" min="1" placeholder="Units in this lot" />
+            </div>
+            <div class="form-group">
+              <label class="form-label">Expiration Date *</label>
+              <input id="batch-exp" class="form-input" type="date" />
+            </div>
+            <div class="form-group span2">
+              <label class="form-label">Notes</label>
+              <input id="batch-notes" class="form-input" type="text" placeholder="Lot number, source, etc. (optional)" />
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="addBatch()">Add Batch</button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('batches-modal')">Close</button>
       </div>
     </div>
   </div>
@@ -246,6 +314,13 @@
         itemsList = its   || [];
         classes   = cls   || [];
         renderClassTabs();
+        filterTable();
+      } catch (e) { /* toast shown by apiGet */ }
+    }
+
+    async function refreshConsumables() {
+      try {
+        allItems = await apiGet('getConsumables') || [];
         filterTable();
       } catch (e) { /* toast shown by apiGet */ }
     }
@@ -306,7 +381,7 @@
       const tbody = document.getElementById('tbody');
       document.getElementById('count').textContent = data.length + ' of ' + allItems.length + ' total items';
       if (data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+        tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
           <div class="empty-icon">🧪</div>
           <div class="empty-text">No items yet for this class.<br>Use the Daily Log to record usage — items appear here automatically.<br>Or click <strong>+ Add / Set Stock</strong> to add one manually.</div>
         </div></td></tr>`;
@@ -324,24 +399,29 @@
           lastClass = item['Class'];
           rows.push(`<tr><td colspan="8" style="background:rgba(79,142,247,.06);padding:8px 16px;font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);">${esc(lastClass || 'No Class')}</td></tr>`);
         }
-        const qty  = item['Quantity'] === '' ? 0 : Number(item['Quantity']);
-        const thr  = Number(item['Reorder Threshold']) || 0;
-        const isOut = qty <= 0;
-        const isLow = thr > 0 && qty <= thr;
-        const rowCls = isOut ? 'row-critical' : isLow ? 'row-low' : '';
-        const cost   = Number(item['Cost Per Unit']);
+        const qty     = item['Quantity'] === '' ? 0 : Number(item['Quantity']);
+        const thr     = Number(item['Reorder Threshold']) || 0;
+        const isOut   = qty <= 0;
+        const isLow   = thr > 0 && qty <= thr;
+        const ordered = item['Order Status'] === 'Ordered';
+        const rowCls  = isOut ? 'row-critical' : isLow ? 'row-low' : '';
+        const cost    = Number(item['Cost Per Unit']);
+        const expDate = item['Expiration Date'] || '';
         rows.push(`<tr class="${rowCls}">
           <td style="font-weight:500;color:var(--text-1);">${esc(item['Name'])}</td>
           <td><span class="pill pill-violet" style="font-size:.62rem;">${esc(item['Class'] || '—')}</span></td>
           <td>${esc(item['Vendor'] || '—')}</td>
           <td style="font-weight:600;color:${isOut?'var(--rose)':isLow?'var(--amber)':'var(--text-1)'};">${qty}</td>
           <td style="color:var(--text-3);">${thr || '—'}</td>
-          <td>${cost ? '$' + cost.toFixed(2) : '—'}</td>
-          <td>${stockPill(qty, thr)}</td>
+          <td>${cost ? fmt$(cost) : '—'}</td>
+          <td>${expDate ? expPill(expDate) + '<br><span style="font-size:.65rem;color:var(--text-3);">' + fmtDate(expDate) + '</span>' : expPill('')}</td>
+          <td>${stockPill(qty, thr)}${ordered ? '<br><span class="pill pill-blue" style="font-size:.6rem;margin-top:4px;">Ordered</span>' : ''}</td>
           <td class="no-print">
-            <div style="display:flex;gap:6px;">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:rgba(62,207,142,.3);" onclick="openRestock('${esc(item['ID'])}')">+ Restock</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--amber);border-color:rgba(245,166,35,.3);" onclick="openBatches('${esc(item['ID'])}')">Batches</button>
               <button class="btn btn-ghost btn-sm" onclick="openEdit('${esc(item['ID'])}')">Edit</button>
+              <button class="btn btn-ghost btn-sm" style="color:var(--violet);border-color:rgba(167,139,250,.3);" onclick="openMerge('${esc(item['ID'])}')">Merge</button>
               <button class="btn btn-danger btn-sm" onclick="deleteItem('${esc(item['ID'])}','${esc(item['Name'])}')">Delete</button>
             </div>
           </td>
@@ -476,6 +556,7 @@
       document.getElementById('restock-name').textContent  = item['Name'];
       document.getElementById('restock-class').textContent = item['Class'] + ' · Currently ' + (Number(item['Quantity']) || 0) + ' on hand';
       document.getElementById('restock-qty').value      = '';
+      document.getElementById('restock-exp').value      = '';
       document.getElementById('restock-invoice').value  = '';
       document.getElementById('restock-shipping').value = '';
       document.getElementById('restock-notes').value    = '';
@@ -483,21 +564,167 @@
     }
 
     async function confirmRestock() {
-      const qty      = Number(document.getElementById('restock-qty').value);
-      const invoice  = Number(document.getElementById('restock-invoice').value)  || 0;
-      const shipping = Number(document.getElementById('restock-shipping').value) || 0;
-      const notes    = document.getElementById('restock-notes').value.trim();
+      const qty            = Number(document.getElementById('restock-qty').value);
+      const expirationDate = document.getElementById('restock-exp').value;
+      const invoice        = Number(document.getElementById('restock-invoice').value)  || 0;
+      const shipping       = Number(document.getElementById('restock-shipping').value) || 0;
+      const notes          = document.getElementById('restock-notes').value.trim();
       if (!qty || qty < 1) { showToast('Enter a quantity received', 'error'); return; }
       const btn = document.getElementById('restock-btn');
       btn.disabled = true; btn.textContent = 'Saving…';
       try {
-        await apiPost({ action: 'restockConsumable', id: restockingId, qty, invoiceAmount: invoice, shippingTax: shipping, notes });
+        await apiPost({ action: 'restockConsumable', id: restockingId, qty, expirationDate, invoiceAmount: invoice, shippingTax: shipping, notes });
         showToast('Stock updated');
         closeModal('restock-modal');
         await load();
       } finally {
         btn.disabled = false; btn.textContent = 'Add to Stock';
       }
+    }
+
+    // ── Batches modal ─────────────────────────────────────────
+
+    let batchesItem = null;
+
+    async function openBatches(id) {
+      batchesItem = allItems.find(c => String(c['ID']) === String(id));
+      if (!batchesItem) return;
+      document.getElementById('batches-name').textContent  = batchesItem['Name'];
+      document.getElementById('batches-class').textContent = batchesItem['Class'];
+      document.getElementById('batch-qty').value   = '';
+      document.getElementById('batch-exp').value   = '';
+      document.getElementById('batch-notes').value = '';
+      openModal('batches-modal');
+      await refreshBatchList();
+    }
+
+    async function refreshBatchList() {
+      if (!batchesItem) return;
+      const el = document.getElementById('batches-list');
+      el.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+      try {
+        const batches = await apiGet('getBatches', { name: batchesItem['Name'], class: batchesItem['Class'] });
+        if (!batches || batches.length === 0) {
+          el.innerHTML = '<div style="font-size:.8rem;color:var(--text-3);padding:8px 0;">No batches recorded yet. Add one below or use Restock to add qty with an expiration date.</div>';
+          return;
+        }
+        const sorted = [...batches].sort((a, b) => (a['Expiration Date'] || '').localeCompare(b['Expiration Date'] || ''));
+        el.innerHTML = `<table class="ltable" style="font-size:.82rem;">
+          <thead><tr><th>Qty Received</th><th>Expiration Date</th><th>Received</th><th>Status</th><th class="no-print">Actions</th></tr></thead>
+          <tbody>${sorted.map(b => {
+            const exp = b['Expiration Date'] || '';
+            return `<tr>
+              <td style="font-weight:500;">${esc(b['Quantity'] || '—')}</td>
+              <td>${exp ? fmtDate(exp) : '—'}</td>
+              <td style="color:var(--text-3);">${b['Received Date'] ? fmtDate(b['Received Date']) : '—'}</td>
+              <td>${expPill(exp)}</td>
+              <td class="no-print"><button class="btn btn-danger btn-sm" onclick="deleteBatch('${esc(b['ID'])}')">Delete</button></td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`;
+      } catch (e) { el.innerHTML = '<div style="color:var(--rose);font-size:.8rem;">Failed to load batches</div>'; }
+    }
+
+    async function addBatch() {
+      if (!batchesItem) return;
+      const qty  = Number(document.getElementById('batch-qty').value);
+      const exp  = document.getElementById('batch-exp').value;
+      const notes = document.getElementById('batch-notes').value.trim();
+      if (!qty || qty < 1) { showToast('Enter a quantity', 'error'); return; }
+      if (!exp) { showToast('Enter an expiration date', 'error'); return; }
+      try {
+        await apiPost({ action: 'addBatch', row: {
+          'Item Name': batchesItem['Name'], 'Class': batchesItem['Class'],
+          'Quantity': qty, 'Expiration Date': exp, 'Notes': notes
+        }});
+        showToast('Batch added');
+        document.getElementById('batch-qty').value   = '';
+        document.getElementById('batch-exp').value   = '';
+        document.getElementById('batch-notes').value = '';
+        await refreshBatchList();
+        await refreshConsumables();
+      } catch (e) { /* toast shown */ }
+    }
+
+    async function deleteBatch(id) {
+      if (!confirm('Delete this batch record?')) return;
+      try {
+        await apiPost({ action: 'deleteBatch', id });
+        showToast('Batch deleted');
+        await refreshBatchList();
+        await refreshConsumables();
+      } catch (e) { /* toast shown */ }
+    }
+
+    // ── Merge ─────────────────────────────────────────────────
+
+    let mergeSourceId = null;
+
+    function openMerge(id) {
+      mergeSourceId = id;
+      const source = allItems.find(c => c['ID'] === id);
+      if (!source) return;
+
+      document.getElementById('merge-source-label').textContent =
+        source['Name'] + ' — ' + (source['Class'] || 'No Class') +
+        ' (qty: ' + (Number(source['Quantity']) || 0) + ')';
+
+      // Populate target select: all items except the source, same class preferred
+      const sel = document.getElementById('merge-target-select');
+      sel.innerHTML = '<option value="">Select entry to keep…</option>';
+      const sameClass = allItems.filter(c => c['ID'] !== id && c['Class'] === source['Class']);
+      const other     = allItems.filter(c => c['ID'] !== id && c['Class'] !== source['Class']);
+
+      if (sameClass.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Same class';
+        sameClass.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c['ID'];
+          o.textContent = c['Name'] + ' (qty: ' + (Number(c['Quantity']) || 0) + ')';
+          grp.appendChild(o);
+        });
+        sel.appendChild(grp);
+      }
+      if (other.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Other classes';
+        other.forEach(c => {
+          const o = document.createElement('option');
+          o.value = c['ID'];
+          o.textContent = c['Name'] + ' — ' + (c['Class'] || 'No Class') + ' (qty: ' + (Number(c['Quantity']) || 0) + ')';
+          grp.appendChild(o);
+        });
+        sel.appendChild(grp);
+      }
+
+      sel.onchange = () => {
+        const target = allItems.find(c => c['ID'] === sel.value);
+        const preview = document.getElementById('merge-preview');
+        if (target) {
+          const newQty = (Number(source['Quantity']) || 0) + (Number(target['Quantity']) || 0);
+          preview.textContent = '"' + source['Name'] + '" will be deleted. "' + target['Name'] + '" will have qty ' + newQty + '.';
+        } else {
+          preview.textContent = '';
+        }
+      };
+      document.getElementById('merge-preview').textContent = '';
+      openModal('merge-modal');
+    }
+
+    async function confirmMerge() {
+      const targetId = document.getElementById('merge-target-select').value;
+      if (!targetId) { showToast('Select an entry to merge into', 'error'); return; }
+      const source = allItems.find(c => c['ID'] === mergeSourceId);
+      const target = allItems.find(c => c['ID'] === targetId);
+      if (!source || !target) return;
+      const msg = 'Merge "' + source['Name'] + '" into "' + target['Name'] + '"? This cannot be undone.';
+      if (!confirm(msg)) return;
+      closeModal('merge-modal');
+      const result = await apiPost({ action: 'mergeConsumables', sourceId: mergeSourceId, targetId });
+      if (result && result.error) return;
+      showToast('"' + source['Name'] + '" merged into "' + target['Name'] + '"');
+      await load();
     }
 
     // ── Delete / Export ───────────────────────────────────────

@@ -6,7 +6,9 @@
 // ============================================================
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbwA3SIOTwJDy7zWgrk36xFL-uPW4d2L1vUepfDnCg3w8TrJPr8-9pAA8WOGBXie1hf6/exec';
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 30000;
+const CACHE_TTL  = 90000; // 90 seconds
+const CACHE_PFX  = 'lims_';
 
 // ── API Calls ─────────────────────────────────────────────────
 
@@ -14,6 +16,17 @@ async function apiGet(action, params = {}) {
   const url = new URL(API_URL);
   url.searchParams.set('action', action);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const cacheKey = CACHE_PFX + url.search;
+
+  // Return cached response if still fresh
+  try {
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      const { ts, data } = JSON.parse(cached);
+      if (Date.now() - ts < CACHE_TTL) return data;
+    }
+  } catch (_) { /* sessionStorage unavailable — proceed without cache */ }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -21,6 +34,7 @@ async function apiGet(action, params = {}) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
+    try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
     return data;
   } catch (err) {
     const msg = err.name === 'AbortError' ? 'Request timed out after 15s' : err.message;
@@ -44,6 +58,12 @@ async function apiPost(payload) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     if (data && data.error) throw new Error(data.error);
+    // Any write invalidates all cached reads so the next load reflects the change
+    try {
+      Object.keys(sessionStorage)
+        .filter(k => k.startsWith(CACHE_PFX))
+        .forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
     return data;
   } catch (err) {
     const msg = err.name === 'AbortError' ? 'Request timed out after 15s' : err.message;
@@ -135,6 +155,15 @@ function stockPill(qty, threshold) {
   if (q === 0)       return '<span class="pill pill-rose">Out of Stock</span>';
   if (t > 0 && q <= t) return '<span class="pill pill-amber">Low Stock</span>';
   return '<span class="pill pill-green">In Stock</span>';
+}
+
+function expPill(dateStr) {
+  if (!dateStr) return '<span class="pill pill-blue">N/A</span>';
+  const d = daysUntil(dateStr);
+  if (d === null)  return '<span class="pill pill-blue">N/A</span>';
+  if (d < 0)       return '<span class="pill pill-rose">⚠ Expired</span>';
+  if (d <= 30)     return '<span class="pill pill-amber">Exp Soon</span>';
+  return '<span class="pill pill-green">OK</span>';
 }
 
 // ── HTML Escaping ─────────────────────────────────────────────

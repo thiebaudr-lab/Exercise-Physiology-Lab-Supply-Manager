@@ -125,16 +125,17 @@
             <thead>
               <tr>
                 <th>Item</th>
-                <th>Vendor</th>
+                <th>Vendor / Contact</th>
                 <th>Current Qty</th>
                 <th>Reorder At</th>
                 <th>Shortfall</th>
                 <th>Cost/Unit</th>
                 <th>Status</th>
+                <th class="no-print">Order</th>
               </tr>
             </thead>
             <tbody id="reorder-tbody">
-              <tr><td colspan="7"><div class="empty-state"><div class="spinner"></div></div></td></tr>
+              <tr><td colspan="8"><div class="empty-state"><div class="spinner"></div></div></td></tr>
             </tbody>
           </table>
         </div>
@@ -227,24 +228,28 @@
     startClock();
     document.getElementById('gen-time').textContent = new Date().toLocaleString();
 
-    let allLog       = [];
-    let allCons      = [];
+    let allLog        = [];
+    let allCons       = [];
     let allMaintTasks = [];
-    let classes      = [];
-    let semesterData = [];
+    let classes       = [];
+    let semesterData  = [];
+    let vendorMap     = {};  // name → vendor row
 
     async function load() {
       try {
-        const [logData, cons, tasks, cls] = await Promise.all([
+        const [logData, cons, tasks, cls, vens] = await Promise.all([
           apiGet('getDailyLog'),
           apiGet('getConsumables'),
           apiGet('getMaintTasks'),
-          apiGet('getClasses')
+          apiGet('getClasses'),
+          apiGet('getVendors')
         ]);
         allLog        = logData || [];
         allCons       = cons    || [];
         allMaintTasks = tasks   || [];
         classes       = cls     || [];
+        vendorMap     = {};
+        (vens || []).forEach(v => { vendorMap[v['Name']] = v; });
         populateClassFilter();
         runReports();
       } catch (e) { /* toast shown */ }
@@ -332,22 +337,29 @@
       document.getElementById('reorder-badge').textContent = reorderData.length + ' items';
       const tbody = document.getElementById('reorder-tbody');
       if (reorderData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">All stock levels are above reorder thresholds.</div></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">All stock levels are above reorder thresholds.</div></div></td></tr>';
         return;
       }
       tbody.innerHTML = reorderData.map(c => {
-        const qty  = Number(c['Quantity']) || 0;
-        const thr  = Number(c['Reorder Threshold']) || 0;
-        const diff = thr - qty;
-        const cost = Number(c['Cost Per Unit']);
+        const qty     = Number(c['Quantity']) || 0;
+        const thr     = Number(c['Reorder Threshold']) || 0;
+        const diff    = thr - qty;
+        const cost    = Number(c['Cost Per Unit']);
+        const ordered = c['Order Status'] === 'Ordered';
+        const vd      = vendorMap[c['Vendor']] || {};
+        const contact = [vd['Phone'], vd['Email']].filter(Boolean).join(' · ');
+        const orderBtn = ordered
+          ? `<button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:rgba(62,207,142,.3);" onclick="markOrdered('${esc(c['ID'])}','')">✓ Ordered</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="markOrdered('${esc(c['ID'])}','Ordered')">Mark Ordered</button>`;
         return `<tr class="${qty === 0 ? 'row-critical' : 'row-low'}">
-          <td style="font-weight:500;color:var(--text-1);">${esc(c['Name'])}</td>
-          <td>${esc(c['Vendor'] || '—')}</td>
+          <td style="font-weight:500;color:var(--text-1);">${esc(c['Name'])}<br><span style="font-size:.65rem;color:var(--text-3);">${esc(c['Class'] || '')}</span></td>
+          <td>${esc(c['Vendor'] || '—')}${contact ? '<br><span style="font-size:.65rem;color:var(--text-3);">' + esc(contact) + '</span>' : ''}</td>
           <td style="font-weight:600;color:${qty===0?'var(--rose)':'var(--amber)'};">${qty}</td>
           <td style="color:var(--text-3);">${thr}</td>
           <td style="color:var(--rose);font-weight:600;">−${diff}</td>
-          <td>${cost ? '$' + cost.toFixed(2) : '—'}</td>
+          <td>${cost ? fmt$(cost) : '—'}</td>
           <td>${stockPill(qty, thr)}</td>
+          <td class="no-print">${orderBtn}</td>
         </tr>`;
       }).join('');
     }
@@ -459,10 +471,22 @@
       }));
       downloadCSV(rows, 'usage-report-' + today() + '.csv');
     }
+    async function markOrdered(id, status) {
+      try {
+        const result = await apiPost({ action: 'markOrdered', id, status });
+        if (result && result.error) return;
+        const item = allCons.find(c => String(c['ID']) === String(id));
+        if (item) item['Order Status'] = status;
+        renderReorderReport();
+        showToast(status ? 'Marked as ordered' : 'Order status cleared');
+      } catch (e) { /* toast shown */ }
+    }
+
     function exportReorder() {
       downloadCSV(reorderData.map(c => ({
-        'Name': c['Name'], 'Vendor': c['Vendor'], 'Quantity': c['Quantity'],
-        'Reorder Threshold': c['Reorder Threshold'], 'Cost Per Unit': c['Cost Per Unit']
+        'Name': c['Name'], 'Class': c['Class'], 'Vendor': c['Vendor'],
+        'Quantity': c['Quantity'], 'Reorder Threshold': c['Reorder Threshold'],
+        'Cost Per Unit': c['Cost Per Unit'], 'Order Status': c['Order Status'] || ''
       })), 'reorder-report-' + today() + '.csv');
     }
     function exportCal() {
