@@ -1,0 +1,13 @@
+{
+  "name": "exphys-lims",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "jsdom": "^29.0.2",
+    "vitest": "^2.0.0"
+  }
+}
