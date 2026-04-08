@@ -117,33 +117,6 @@
 
     </div>
 
-    <!-- Gemini API Key Setup -->
-    <div class="glass anim d3" style="padding:24px;margin-top:20px;">
-      <div style="font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:6px;">📷 Photo Log Import — Gemini API Key</div>
-      <div style="font-size:.75rem;color:var(--text-3);margin-bottom:16px;">
-        Required for the <strong style="color:var(--text-2);">Import from Photo</strong> feature on the Daily Log page.
-        The key is stored inside Apps Script — it is never exposed in the frontend code.
-      </div>
-      <ol style="list-style:none;display:flex;flex-direction:column;gap:10px;">
-        <li style="display:flex;gap:14px;align-items:flex-start;">
-          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">1</span>
-          <div style="font-size:.8rem;color:var(--text-2);">Go to <strong>aistudio.google.com</strong> → sign in with your Google account → click <strong>Get API key</strong> → <strong>Create API key</strong>. Copy the key.</div>
-        </li>
-        <li style="display:flex;gap:14px;align-items:flex-start;">
-          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">2</span>
-          <div style="font-size:.8rem;color:var(--text-2);">Open your Apps Script project → click the <strong>gear icon</strong> (Project Settings) in the left sidebar → scroll to <strong>Script Properties</strong> → click <strong>Add script property</strong>.</div>
-        </li>
-        <li style="display:flex;gap:14px;align-items:flex-start;">
-          <span style="background:var(--blue-soft);color:var(--blue);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">3</span>
-          <div style="font-size:.8rem;color:var(--text-2);">Set <strong>Property</strong> to <code style="background:rgba(255,255,255,.08);padding:1px 5px;border-radius:3px;">GEMINI_API_KEY</code> and <strong>Value</strong> to your API key. Click <strong>Save script properties</strong>.</div>
-        </li>
-        <li style="display:flex;gap:14px;align-items:flex-start;">
-          <span style="background:var(--green-soft);color:var(--green);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">4</span>
-          <div style="font-size:.8rem;color:var(--text-2);">No new deployment needed — Script Properties are read at runtime. The free tier allows up to <strong>1,500 photo parses per day</strong>, well beyond lab use.</div>
-        </li>
-      </ol>
-    </div>
-
     <!-- API Configuration -->
     <div class="glass anim d3" style="padding:24px;margin-top:20px;">
       <div style="font-family:var(--font-display);font-weight:600;font-size:.95rem;color:var(--text-1);margin-bottom:6px;">⚙️ API Configuration</div>
@@ -328,7 +301,7 @@
     let _editVendorId = null;
 
     function editVendor(id) {
-      const v = vendorList.find(x => x['ID'] === id);
+      const v = vendorList.find(x => String(x['ID']) === String(id));
       if (!v) return;
       _editVendorId = id;
       document.getElementById('vmod-name').value    = v['Name']    || '';

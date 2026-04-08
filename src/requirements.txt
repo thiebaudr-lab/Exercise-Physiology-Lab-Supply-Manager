@@ -1,0 +1,28 @@
+# ExPhys LIMS — Log Sheet Importer dependencies
+#
+# Install with:
+#   pip install -r requirements.txt
+#
+# On Windows you also need poppler in PATH for pdf2image:
+#   https://github.com/oschwartz10612/poppler-windows/releases
+#   Extract and add the bin/ folder to your PATH.
+#
+# On Mac:
+#   brew install poppler
+
+# GUI
+customtkinter>=5.2.0
+
+# OCR
+paddlepaddle>=2.6.0        # CPU-only build; GPU users: paddlepaddle-gpu
+paddleocr>=2.7.0
+
+# PDF rasterisation
+pdf2image>=1.17.0
+Pillow>=10.0.0
+
+# Numeric / array
+numpy>=1.24.0
+
+# Build (optional — only needed to create .exe / .app)
+# pyinstaller>=6.0.0

@@ -100,7 +100,6 @@ function doPost(e) {
       case 'deleteMaintTask'   : result = deleteRow(TABS.maintTasks, data.id);                                        break;
       case 'completeMaintTask' : result = completeMaintTask(data.taskId, data.log);                                   break;
       case 'deleteMaintLog'    : result = deleteRow(TABS.maintLog, data.id);                                          break;
-      case 'processPhotoLog'   : result = processPhotoLog(data.imageBase64, data.mimeType);                          break;
       default                  : result = { error: 'Unknown action: ' + data.action };
     }
   } catch (err) {
@@ -610,61 +609,6 @@ function clearConsumables() {
     sheet.deleteRows(2, sheet.getLastRow() - 1);
   }
   return { success: true };
-}
-
-// Parse a handwritten log sheet photo using Gemini 1.5 Flash.
-// Requires GEMINI_API_KEY in Script Properties:
-//   Apps Script editor → Project Settings (gear) → Script Properties → Add property
-//   Key: GEMINI_API_KEY  Value: your key from aistudio.google.com
-function processPhotoLog(imageBase64, mimeType) {
-  var apiKey = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not set. Go to Apps Script → Project Settings → Script Properties and add your key from aistudio.google.com.');
-  }
-
-  var year   = new Date().getFullYear();
-  var prompt = 'This is a handwritten lab supply usage log sheet from an exercise physiology laboratory.\n' +
-    'The columns are: Item, Qty, Class, Date, Initials, Notes (Notes may be absent).\n\n' +
-    'Extract every data row as a JSON array. Each object must have:\n' +
-    '- "item": the supply name exactly as written (string)\n' +
-    '- "qty": quantity as a whole number (use 1 if blank or unclear)\n' +
-    '- "class": the class or course as written (string, e.g. "ESS 375L")\n' +
-    '- "date": date in YYYY-MM-DD format (assume year ' + year + ' if only month/day is written)\n' +
-    '- "initials": the person\'s initials or name as written (string)\n' +
-    '- "notes": notes column content (empty string if none)\n\n' +
-    'Skip header rows and completely blank rows.\n' +
-    'Return ONLY the JSON array. No markdown, no code fences, no explanation.';
-
-  var payload = {
-    contents: [{ parts: [
-      { inlineData: { mimeType: mimeType || 'image/jpeg', data: imageBase64 } },
-      { text: prompt }
-    ]}],
-    generationConfig: { temperature: 0.1 }
-  };
-
-  var response = UrlFetchApp.fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey,
-    { method: 'post', contentType: 'application/json', payload: JSON.stringify(payload), muteHttpExceptions: true }
-  );
-
-  if (response.getResponseCode() !== 200) {
-    var body = response.getContentText();
-    throw new Error('Gemini API error ' + response.getResponseCode() + ': ' + body.substring(0, 300));
-  }
-
-  var raw = JSON.parse(response.getContentText());
-  var text = (raw.candidates && raw.candidates[0] && raw.candidates[0].content &&
-              raw.candidates[0].content.parts && raw.candidates[0].content.parts[0].text) || '';
-  text = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-
-  try {
-    var entries = JSON.parse(text);
-    if (!Array.isArray(entries)) throw new Error('Not an array');
-    return { entries: entries };
-  } catch (e) {
-    throw new Error('Could not parse Gemini response. Raw text: ' + text.substring(0, 400));
-  }
 }
 
 // Called by a time-based trigger every 5 minutes to prevent Apps Script cold starts.
