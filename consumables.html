@@ -662,7 +662,7 @@
 
     function openMerge(id) {
       mergeSourceId = id;
-      const source = allItems.find(c => c['ID'] === id);
+      const source = allItems.find(c => String(c['ID']) === String(id));
       if (!source) return;
 
       document.getElementById('merge-source-label').textContent =
@@ -699,7 +699,7 @@
       }
 
       sel.onchange = () => {
-        const target = allItems.find(c => c['ID'] === sel.value);
+        const target = allItems.find(c => String(c['ID']) === String(sel.value));
         const preview = document.getElementById('merge-preview');
         if (target) {
           const newQty = (Number(source['Quantity']) || 0) + (Number(target['Quantity']) || 0);
@@ -715,8 +715,8 @@
     async function confirmMerge() {
       const targetId = document.getElementById('merge-target-select').value;
       if (!targetId) { showToast('Select an entry to merge into', 'error'); return; }
-      const source = allItems.find(c => c['ID'] === mergeSourceId);
-      const target = allItems.find(c => c['ID'] === targetId);
+      const source = allItems.find(c => String(c['ID']) === String(mergeSourceId));
+      const target = allItems.find(c => String(c['ID']) === String(targetId));
       if (!source || !target) return;
       const msg = 'Merge "' + source['Name'] + '" into "' + target['Name'] + '"? This cannot be undone.';
       if (!confirm(msg)) return;

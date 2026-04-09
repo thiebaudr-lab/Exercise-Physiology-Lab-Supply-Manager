@@ -14,7 +14,7 @@ A lightweight, browser-based system for tracking lab supplies, equipment calibra
 | **Daily Log** | Record supply usage by class; auto-decrements consumable inventory; CSV bulk import |
 | **Reports** | Usage pivot, reorder report (with vendor contact and order status), calibration status, and semester/annual usage trends — all exportable to CSV |
 | **Budget** | Per-class course fee budget tracking — semester enrollment entry, spending history, remaining balance |
-| **Settings** | Manage Staff, Vendor (with contact info), Class, and Item Name dropdowns; Gemini API key setup |
+| **Settings** | Manage Staff, Vendor (with contact info), Class, and Item Name dropdowns; connection test |
 
 ---
 
@@ -235,18 +235,6 @@ Vendor entries support optional **Phone**, **Email**, and **Website** fields. Th
 
 ---
 
-### Gemini API Key (Photo Log Import)
-
-The **Import from Photo** feature on the Daily Log page uses Google's Gemini AI to parse a photo of a handwritten log sheet into structured entries. To enable it:
-
-1. Go to [aistudio.google.com](https://aistudio.google.com) → **Get API key** → **Create API key** → copy the key
-2. In your Apps Script project → gear icon (Project Settings) → **Script Properties** → **Add script property**
-3. Set Property = `GEMINI_API_KEY`, Value = your key → **Save**
-
-No new deployment is needed. The key is stored server-side in Script Properties and is never exposed in the frontend. Full setup instructions are also available on the **Settings** page.
-
----
-
 ## Updating the Apps Script
 
 If you make changes to `Code.gs`, you must create a **new deployment** for changes to take effect:
@@ -284,6 +272,6 @@ Upload the contents of `deploy/` to your Open eQuella microsite and set `index.h
 | `daily-log.html` | Daily usage log with CSV bulk import |
 | `reports.html` | Reports and CSV export — usage summary, reorder (with vendor contact + order status), maintenance, semester/annual |
 | `budget.html` | Per-class budget tracking — semester enrollment, spending history, remaining balance |
-| `settings.html` | Dropdown management, vendor contact info, Gemini API key setup, connection test |
+| `settings.html` | Dropdown management, vendor contact info, connection test |
 | `lab-banner.jpg` | Lab photo displayed on the dashboard |
 | `build.sh` | Build script — copies eQuella files into `deploy/` |

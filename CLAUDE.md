@@ -24,7 +24,7 @@ Google Sheet (12 tabs)
 
 | File | Role |
 |---|---|
-| `Code.gs` | Apps Script backend — routes GET/POST, all CRUD, auto-decrement on log entry, batch/expiration tracking, Gemini photo parsing |
+| `Code.gs` | Apps Script backend — routes GET/POST, all CRUD, auto-decrement on log entry, batch/expiration tracking |
 | `api.js` | Shared: `apiGet()`, `apiPost()`, `showToast()`, `populateSelect()`, `downloadCSV()`, pill helpers, `startClock()`, sessionStorage caching |
 | `style.css` | Shared stylesheet — all pages reference this |
 | `index.html` | Live dashboard — fetches individual endpoints in parallel, computes KPIs client-side (low stock, expiring, maintenance) |
@@ -33,7 +33,7 @@ Google Sheet (12 tabs)
 | `daily-log.html` | Log entry form + history table; logging a consumable auto-decrements qty; CSV bulk import with template + row-by-row review |
 | `reports.html` | Usage pivot, reorder report (vendor contact + order status), maintenance status, semester/annual usage — all filterable + CSV export |
 | `budget.html` | Per-class budget tracking — semester enrollment entry, KPI cards, spending history, CSV export |
-| `settings.html` | Manage Staff/Vendor (with contact info)/Class/Item dropdowns; inline rename for Staff/Classes; Gemini API key setup; connection test |
+| `settings.html` | Manage Staff/Vendor (with contact info)/Class/Item dropdowns; inline rename for Staff/Classes; connection test |
 
 ## Google Sheet Schema
 
@@ -76,7 +76,6 @@ Google Sheet (12 tabs)
 - **Mark complete:** `completeMaintTask()` logs to Maintenance Log and auto-advances `Next Due` via `advanceDate()`. Optionally decrements a consumable via `decrementConsumable()` — same auto-create logic as Daily Log.
 - **`decrementConsumable(name, cls, qty)`:** Shared Code.gs helper used by both `addLogEntry` and `completeMaintTask`. Finds the matching Name+Class row in Consumables and subtracts qty; auto-creates row with negative qty if not found.
 - **CSV bulk import (Daily Log):** Client-side CSV parse → row-by-row review table (editable fields) → sequential `addLogEntry` calls. Each row triggers the same auto-decrement as manual entry.
-- **Gemini photo log parsing:** `processPhotoLog(imageBase64, mimeType)` in Code.gs calls Gemini 1.5 Flash with a structured prompt to extract log rows from a photo. Requires `GEMINI_API_KEY` in Apps Script Script Properties. Key is never in frontend code.
 - **Vendor contact info:** Vendors now store `Phone`, `Email`, `Website`. The Reorder Report displays contact details inline. `updateVendor` cascades a name change to all matching rows in Consumables and Hardware.
 - **Rename Staff / Classes:** `updateStaff` and `updateClass` rename entries. The settings page uses an inline edit modal for both.
 - **sessionStorage caching:** `apiGet()` caches responses for 90 seconds keyed by action+params. Any `apiPost()` call clears all cache entries. Dashboard uses parallel individual `apiGet()` calls (not `getAll`) so each endpoint benefits independently from cache.
@@ -107,7 +106,7 @@ apiPost({ action: 'restockConsumable', id: 'ABC123', qty: 50 })
 apiPost({ action: 'clearConsumables' })
 ```
 
-Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | getBatches | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | markOrdered | mergeConsumables | addBatch | deleteBatch | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | updateVendor | deleteVendor | addStaff | updateStaff | deleteStaff | addClass | updateClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry | getMaintTasks | getMaintLog | addMaintTask | updateMaintTask | deleteMaintTask | completeMaintTask | deleteMaintLog | processPhotoLog`
+Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | getBatches | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | markOrdered | mergeConsumables | addBatch | deleteBatch | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | updateVendor | deleteVendor | addStaff | updateStaff | deleteStaff | addClass | updateClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry | getMaintTasks | getMaintLog | addMaintTask | updateMaintTask | deleteMaintTask | completeMaintTask | deleteMaintLog`
 
 ## Shared Utilities in api.js
 
