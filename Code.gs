@@ -91,6 +91,7 @@ function doPost(e) {
       case 'updateClass'       : result = renameClass(data.id, data.row['Name']);                                     break;
       case 'deleteClass'       : result = deleteRow(TABS.classes, data.id);                                           break;
       case 'addItem'           : result = addRow(TABS.items, data.row);                                               break;
+      case 'updateItem'        : result = renameItem(data.id, data.row['Name']);                                      break;
       case 'deleteItem'        : result = deleteRow(TABS.items, data.id);                                             break;
       case 'addBudgetEntry'    : result = addRow(TABS.budget, data.row);                                              break;
       case 'updateBudgetEntry' : result = updateRow(TABS.budget, data.id, data.row);                                  break;
@@ -554,6 +555,42 @@ function renameStaff(id, newName) {
     var data  = sheet.getDataRange().getValues();
     var hdrs  = data[0];
     var colI  = hdrs.indexOf(t.col);
+    if (colI < 0) return;
+    for (var r = 1; r < data.length; r++) {
+      if (String(data[r][colI]) === oldName) {
+        sheet.getRange(r + 1, colI + 1).setValue(newName);
+      }
+    }
+  });
+
+  return { success: true };
+}
+
+// Rename an item and cascade to Consumables (Name) and Daily Log (Item Name)
+function renameItem(id, newName) {
+  var oldName = '';
+  var rows = getRows(TABS.items);
+  for (var i = 0; i < rows.length; i++) {
+    if (String(rows[i]['ID']) === String(id)) { oldName = rows[i]['Name']; break; }
+  }
+  if (!oldName) return { error: 'Item not found: ' + id };
+  if (oldName === newName) return { success: true };
+
+  var result = updateRow(TABS.items, id, { 'Name': newName });
+  if (result.error) return result;
+
+  var cascadeTabs = [
+    { tab: TABS.consumables, col: 'Name' },
+    { tab: TABS.log,         col: 'Item Name' },
+    { tab: TABS.restockLog,  col: 'Item Name' },
+    { tab: TABS.batches,     col: 'Item Name' }
+  ];
+  cascadeTabs.forEach(function(t) {
+    var sheet = ss.getSheetByName(t.tab);
+    if (!sheet || sheet.getLastRow() < 2) return;
+    var data = sheet.getDataRange().getValues();
+    var hdrs = data[0];
+    var colI = hdrs.indexOf(t.col);
     if (colI < 0) return;
     for (var r = 1; r < data.length; r++) {
       if (String(data[r][colI]) === oldName) {

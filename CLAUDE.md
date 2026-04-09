@@ -106,7 +106,7 @@ apiPost({ action: 'restockConsumable', id: 'ABC123', qty: 50 })
 apiPost({ action: 'clearConsumables' })
 ```
 
-Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | getBatches | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | markOrdered | mergeConsumables | addBatch | deleteBatch | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | updateVendor | deleteVendor | addStaff | updateStaff | deleteStaff | addClass | updateClass | deleteClass | addItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry | getMaintTasks | getMaintLog | addMaintTask | updateMaintTask | deleteMaintTask | completeMaintTask | deleteMaintLog`
+Full action list: `getAll | getConsumables | getHardware | getDailyLog | getVendors | getStaff | getClasses | getItems | getBatches | addConsumable | updateConsumable | deleteConsumable | restockConsumable | clearConsumables | markOrdered | mergeConsumables | addBatch | deleteBatch | addHardware | updateHardware | deleteHardware | addLogEntry | updateLogEntry | deleteLogEntry | addVendor | updateVendor | deleteVendor | addStaff | updateStaff | deleteStaff | addClass | updateClass | deleteClass | addItem | updateItem | deleteItem | getBudget | getRestockLog | addBudgetEntry | updateBudgetEntry | deleteBudgetEntry | getMaintTasks | getMaintLog | addMaintTask | updateMaintTask | deleteMaintTask | completeMaintTask | deleteMaintLog`
 
 ## Shared Utilities in api.js
 

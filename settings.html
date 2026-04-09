@@ -265,7 +265,7 @@
     const SETTINGS_CFG = {
       staff: { list: () => staffList, inputId: 'staff-input', addAction: 'addStaff', updateAction: 'updateStaff', deleteAction: 'deleteStaff', label: 'Staff member', note: 'Existing log entries are not affected.' },
       class: { list: () => classList, inputId: 'class-input', addAction: 'addClass', updateAction: 'updateClass', deleteAction: 'deleteClass', label: 'Class',        note: 'Existing log entries are not affected.' },
-      item:  { list: () => itemList,  inputId: 'item-input',  addAction: 'addItem',  updateAction: null,          deleteAction: 'deleteItem',  label: 'Consumable item', note: null }
+      item:  { list: () => itemList,  inputId: 'item-input',  addAction: 'addItem',  updateAction: 'updateItem',  deleteAction: 'deleteItem',  label: 'Consumable item', note: 'Updates item name in Consumables and Daily Log.' }
     };
 
     const editingId = {};  // tracks which item ID is being edited per type
