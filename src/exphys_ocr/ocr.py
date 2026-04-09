@@ -1,14 +1,14 @@
 """
-ocr.py — Convert a multi-page PDF to per-page OCR word lists using PaddleOCR.
+ocr.py — Convert a multi-page PDF to per-page OCR word lists using EasyOCR.
 
-Each page is rasterised to an image, then passed to PaddleOCR.
+Each page is rasterised to an image, then passed to EasyOCR.
 Returns a list of page dicts:
     [
         {
             'page': 1,          # 1-based page number
             'words': [          # all detected text blocks on this page
                 {
-                    'bbox': [[x1,y1],[x2,y1],[x2,y2],[x1,y2]],  # 4-point polygon
+                    'bbox': [[x1,y1],[x2,y1],[x2,y2],[x1,y2]],
                     'text': 'Alcohol Wipes',
                     'conf': 0.97
                 },
@@ -21,24 +21,19 @@ Returns a list of page dicts:
 
 from __future__ import annotations
 
-import os
-import sys
-from pathlib import Path
 from typing import Any
 
 # ── Lazy imports so startup is fast ──────────────────────────────
 
-
-def _import_paddle():
+def _import_easyocr():
     try:
-        from paddleocr import PaddleOCR
-        return PaddleOCR
+        import easyocr
+        return easyocr
     except ImportError:
         raise ImportError(
-            "PaddleOCR is not installed.\n"
-            "Run:  pip install paddleocr paddlepaddle"
+            "easyocr is not installed.\n"
+            "Run:  pip install easyocr"
         )
-
 
 def _import_pdf2image():
     try:
@@ -48,30 +43,28 @@ def _import_pdf2image():
         raise ImportError(
             "pdf2image is not installed.\n"
             "Run:  pip install pdf2image\n"
-            "Also install poppler:  https://poppler.freedesktop.org/"
+            "Also install poppler:\n"
+            "  Windows: https://github.com/oschwartz10612/poppler-windows/releases\n"
+            "  Mac:     brew install poppler"
         )
-
 
 # ── Module-level OCR singleton (initialised once) ─────────────────
 
 _ocr_instance: Any = None
 
-
 def _get_ocr():
     global _ocr_instance
     if _ocr_instance is None:
-        PaddleOCR = _import_paddle()
-        # lang='en', use_angle_cls detects rotated text
-        _ocr_instance = PaddleOCR(use_angle_cls=True, lang='en', show_log=False)
+        easyocr = _import_easyocr()
+        # gpu=False ensures it works on all machines without a CUDA GPU
+        _ocr_instance = easyocr.Reader(['en'], gpu=False)
     return _ocr_instance
-
 
 # ── Public API ────────────────────────────────────────────────────
 
-
 def ocr_pdf(pdf_path: str, dpi: int = 300) -> list[dict]:
     """
-    Rasterise each page of *pdf_path* and run PaddleOCR on it.
+    Rasterise each page of *pdf_path* and run EasyOCR on it.
 
     Parameters
     ----------
@@ -91,22 +84,17 @@ def ocr_pdf(pdf_path: str, dpi: int = 300) -> list[dict]:
     results = []
 
     for page_num, img in enumerate(pages_pil, start=1):
-        # PaddleOCR accepts a numpy array
         import numpy as np
         img_np = np.array(img)
 
-        raw = ocr.ocr(img_np, cls=True)
-        words = []
+        # EasyOCR returns list of (bbox, text, conf)
+        # bbox is [[x1,y1],[x2,y1],[x2,y2],[x1,y2]]
+        raw = ocr.readtext(img_np)
 
-        # raw is a list of lists; outer list = one element per image passed.
-        # raw[0] = list of [bbox, (text, conf)] for this page.
-        page_raw = raw[0] if raw and raw[0] else []
-        for item in page_raw:
-            if item is None:
-                continue
-            bbox, (text, conf) = item
+        words = []
+        for (bbox, text, conf) in raw:
             words.append({
-                'bbox': bbox,   # [[x1,y1],[x2,y1],[x2,y2],[x1,y2]]
+                'bbox': bbox,
                 'text': text,
                 'conf': float(conf)
             })
