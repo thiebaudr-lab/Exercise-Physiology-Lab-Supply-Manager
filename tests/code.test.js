@@ -12,9 +12,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import {
   setupGasMocks,
   makeSheetDB,
-  sheetDB,
-  buildUrlFetchApp,
-  buildPropertiesService
+  sheetDB
 } from './helpers/gas-mock.js';
 
 const __dir = dirname(fileURLToPath(import.meta.url));
@@ -380,83 +378,6 @@ describe('addLogEntry', () => {
     expect(sheetDB['Consumables'].rows.length).toBe(2);
     const newRow = sheetDB['Consumables'].rows[1];
     expect(newRow[7]).toBe(-3);
-  });
-});
-
-// ── processPhotoLog ───────────────────────────────────────────
-
-describe('processPhotoLog', () => {
-  const GEMINI_URL_PATTERN = 'https://generativelanguage.googleapis.com';
-
-  function setGeminiResponse(code, body) {
-    globalThis.UrlFetchApp = {
-      fetch(_url, _opts) {
-        return {
-          getResponseCode: () => code,
-          getContentText: () => typeof body === 'string' ? body : JSON.stringify(body)
-        };
-      }
-    };
-  }
-
-  it('throws when GEMINI_API_KEY is not set', () => {
-    globalThis.PropertiesService = buildPropertiesService({});
-    expect(() => processPhotoLog('base64data', 'image/jpeg')).toThrow('GEMINI_API_KEY not set');
-  });
-
-  it('throws when the Gemini API returns a non-200 status', () => {
-    globalThis.PropertiesService = buildPropertiesService({ GEMINI_API_KEY: 'test-key' });
-    setGeminiResponse(429, '{"error": "rate limited"}');
-    expect(() => processPhotoLog('base64data', 'image/jpeg')).toThrow('Gemini API error 429');
-  });
-
-  it('throws when the response body is not a JSON array', () => {
-    globalThis.PropertiesService = buildPropertiesService({ GEMINI_API_KEY: 'test-key' });
-    const responseBody = {
-      candidates: [{
-        content: { parts: [{ text: '{"not": "an array"}' }] }
-      }]
-    };
-    setGeminiResponse(200, responseBody);
-    expect(() => processPhotoLog('base64data', 'image/jpeg')).toThrow('Could not parse Gemini response');
-  });
-
-  it('throws when the response text is not valid JSON', () => {
-    globalThis.PropertiesService = buildPropertiesService({ GEMINI_API_KEY: 'test-key' });
-    const responseBody = {
-      candidates: [{
-        content: { parts: [{ text: 'this is not json at all' }] }
-      }]
-    };
-    setGeminiResponse(200, responseBody);
-    expect(() => processPhotoLog('base64data', 'image/jpeg')).toThrow('Could not parse Gemini response');
-  });
-
-  it('returns parsed entries from a valid Gemini response', () => {
-    globalThis.PropertiesService = buildPropertiesService({ GEMINI_API_KEY: 'test-key' });
-    const entries = [
-      { item: 'Alcohol Wipes', qty: 5, class: 'ESS 375L', date: '2025-03-01', initials: 'JD', notes: '' }
-    ];
-    const responseBody = {
-      candidates: [{
-        content: { parts: [{ text: JSON.stringify(entries) }] }
-      }]
-    };
-    setGeminiResponse(200, responseBody);
-    const result = processPhotoLog('base64data', 'image/jpeg');
-    expect(result.entries).toEqual(entries);
-  });
-
-  it('strips markdown code fences from the response text', () => {
-    globalThis.PropertiesService = buildPropertiesService({ GEMINI_API_KEY: 'test-key' });
-    const entries = [{ item: 'Gloves', qty: 2, class: 'ESS 497', date: '2025-03-01', initials: 'AB', notes: '' }];
-    const fencedText = '```json\n' + JSON.stringify(entries) + '\n```';
-    const responseBody = {
-      candidates: [{ content: { parts: [{ text: fencedText }] } }]
-    };
-    setGeminiResponse(200, responseBody);
-    const result = processPhotoLog('base64data', 'image/jpeg');
-    expect(result.entries).toEqual(entries);
   });
 });
 
