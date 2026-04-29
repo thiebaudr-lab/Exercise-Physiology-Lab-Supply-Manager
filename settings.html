@@ -76,8 +76,8 @@
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
             <input id="vendor-input" class="linput" type="text" placeholder="Vendor name *" style="width:100%;box-sizing:border-box;" />
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-              <input id="vendor-phone" class="linput" type="text" placeholder="Phone (optional)" style="min-width:0;box-sizing:border-box;" />
-              <input id="vendor-email" class="linput" type="email" placeholder="Email (optional)" style="min-width:0;box-sizing:border-box;" />
+              <input id="vendor-phone" class="linput" type="text" placeholder="Phone (optional)" style="min-width:0;" />
+              <input id="vendor-email" class="linput" type="email" placeholder="Email (optional)" style="min-width:0;" />
             </div>
             <input id="vendor-website" class="linput" type="text" placeholder="Website (optional, e.g. amazon.com)" style="width:100%;box-sizing:border-box;" />
             <button class="btn btn-primary btn-sm" onclick="addVendor()" style="align-self:flex-start;">Add Vendor</button>
@@ -212,11 +212,11 @@
           <input id="vmod-name" class="form-input" type="text" />
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div class="form-group">
+          <div class="form-group" style="min-width:0;">
             <label class="form-label">Phone</label>
             <input id="vmod-phone" class="form-input" type="text" />
           </div>
-          <div class="form-group">
+          <div class="form-group" style="min-width:0;">
             <label class="form-label">Email</label>
             <input id="vmod-email" class="form-input" type="email" />
           </div>
