@@ -82,7 +82,7 @@
               <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">MM/DD/YYYY or YYYY-MM-DD</div>
             </div>
             <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
-              <div style="font-size:.72rem;font-weight:700;color:var(--text-1);">Initials <span style="font-size:.62rem;font-weight:400;color:var(--amber);">required</span></div>
+              <div style="font-size:.72rem;font-weight:700;color:var(--text-3);">Initials <span style="font-size:.62rem;font-weight:400;color:var(--text-3);">optional</span></div>
               <div style="font-size:.68rem;color:var(--text-3);margin-top:2px;">Person's initials or name</div>
             </div>
             <div style="background:rgba(255,255,255,.04);border-radius:6px;padding:8px 10px;">
@@ -130,7 +130,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px;">
         <div>
           <div style="font-family:var(--font-display);font-weight:600;font-size:1rem;color:var(--text-1);">New Log Entry</div>
-          <div style="font-size:.72rem;color:var(--text-3);margin-top:2px;">All fields except Notes are required</div>
+          <div style="font-size:.72rem;color:var(--text-3);margin-top:2px;">Date, Item, Quantity, and Class are required</div>
         </div>
         <span id="form-mode-badge" class="pill pill-blue">New Entry</span>
       </div>
@@ -163,7 +163,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Used By *</label>
+          <label class="form-label">Used By</label>
           <select id="f-user" class="form-input">
             <option value="">Loading…</option>
           </select>
@@ -340,7 +340,7 @@
       const cls   = document.getElementById('f-class').value;
       const user  = document.getElementById('f-user').value;
 
-      if (!date || !item || !qty || !cls || !user) {
+      if (!date || !item || !qty || !cls) {
         showToast('Please fill in all required fields', 'error'); return;
       }
 
@@ -478,8 +478,8 @@
       const iDate = col('date'), iItem = col('item'), iQty = col('quantity');
       const iCls  = col('class'), iInit = col('initials'), iNote = col('notes');
 
-      if (iDate < 0 || iItem < 0 || iQty < 0 || iCls < 0 || iInit < 0) {
-        throw new Error('Missing required columns. Need: Item, Quantity, Class, Date, Initials.');
+      if (iDate < 0 || iItem < 0 || iQty < 0 || iCls < 0) {
+        throw new Error('Missing required columns. Need: Item, Quantity, Class, Date.');
       }
 
       return rows.slice(1)
@@ -630,9 +630,9 @@
         return;
       }
 
-      const invalid = rows.filter(r => !r.date || !r.item || !r.qty || !r.cls || !r.usedBy);
+      const invalid = rows.filter(r => !r.date || !r.item || !r.qty || !r.cls);
       if (invalid.length > 0) {
-        showToast(invalid.length + ' row(s) missing required fields — check Date, Item, Qty, Class, and Used By', 'error');
+        showToast(invalid.length + ' row(s) missing required fields — check Date, Item, Qty, and Class', 'error');
         return;
       }
 
