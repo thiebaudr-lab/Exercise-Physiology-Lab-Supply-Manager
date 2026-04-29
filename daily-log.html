@@ -552,7 +552,12 @@
       return found ? found['Name'] : raw;
     }
 
-    function buildPreviewTable(entries) {
+    async function buildPreviewTable(entries) {
+      if (classes.length === 0) {
+        const [cls, stf] = await Promise.all([apiGet('getClasses'), apiGet('getStaff')]);
+        classes = cls || [];
+        staff   = stf || [];
+      }
       importRows = entries;
       renderPreviewTable();
       document.getElementById('import-preview').style.display = 'block';
